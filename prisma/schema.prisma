@@ -5,12 +5,11 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
-// enough when changing adapters.
-// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+// Dev: set DATABASE_URL="file:./dev.sqlite" in .env (SQLite, zero setup)
+// Production: set DATABASE_URL to your Postgres connection string and change provider to "postgresql"
 datasource db {
   provider = "sqlite"
-  url      = "file:dev.sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model Session {
@@ -31,4 +30,43 @@ model Session {
   emailVerified Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+model Subscriber {
+  id           String    @id @default(cuid())
+  shop         String
+  productId    String
+  variantId    String
+  email        String
+  status       String    @default("PENDING")
+  subscribedAt DateTime  @default(now())
+  notifiedAt   DateTime?
+
+  @@unique([shop, variantId, email])
+  @@index([shop])
+  @@index([shop, variantId, status])
+}
+
+model NotificationLog {
+  id           String   @id @default(cuid())
+  subscriberId String
+  shop         String
+  sentAt       DateTime @default(now())
+  status       String
+  errorMessage String?
+  providerName String?
+
+  @@index([shop])
+  @@index([shop, sentAt])
+}
+
+model ShopSettings {
+  shop            String   @id
+  autoSendEnabled Boolean  @default(true)
+  plan            String   @default("FREE")
+  emailFromName   String   @default("Your Store")
+  emailSubject    String   @default("Good news — your item is back in stock!")
+  emailBodyHtml   String   @default("")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }

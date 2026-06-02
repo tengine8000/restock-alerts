@@ -1,0 +1,31 @@
+api_version = "2025-10"
+
+[[extensions]]
+type = "ui_extension"
+name = "Back in Stock — Notify Me"
+handle = "back-in-stock-notify-me"
+
+  [[extensions.targeting]]
+  module = "./blocks/notify-me.liquid"
+  target = "section"
+
+[extensions.settings]
+  [[extensions.settings.fields]]
+  key = "button_text"
+  type = "single_line_text_field"
+  name = "Button text"
+
+  [[extensions.settings.fields]]
+  key = "button_color"
+  type = "color"
+  name = "Button color"
+
+  [[extensions.settings.fields]]
+  key = "button_text_color"
+  type = "color"
+  name = "Button text color"
+
+  [[extensions.settings.fields]]
+  key = "success_message"
+  type = "single_line_text_field"
+  name = "Success message"

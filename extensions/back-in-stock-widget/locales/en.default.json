@@ -1,0 +1,6 @@
+{
+  "button_text": { "label": "Button text", "default": "Notify Me When Available" },
+  "button_color": { "label": "Button background color" },
+  "button_text_color": { "label": "Button text color" },
+  "success_message": { "label": "Success message", "default": "You're on the list!" }
+}

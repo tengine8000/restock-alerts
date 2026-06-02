@@ -1,0 +1,35 @@
+{%- if product.selected_or_first_available_variant.available == false -%}
+<div
+  class="bis-notify-me"
+  data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+  data-product-id="{{ product.id }}"
+  data-shop="{{ shop.permanent_domain }}"
+  data-app-url="https://{{ request.host }}"
+>
+  <form class="bis-form" novalidate>
+    <div class="bis-field">
+      <input
+        type="email"
+        name="email"
+        class="bis-email-input"
+        placeholder="Enter your email"
+        required
+        autocomplete="email"
+      />
+    </div>
+    <button
+      type="submit"
+      class="bis-submit-btn"
+      style="background-color: {{ block.settings.button_color | default: '#000000' }}; color: {{ block.settings.button_text_color | default: '#ffffff' }};"
+    >
+      {{ block.settings.button_text | default: 'Notify Me When Available' }}
+    </button>
+    <div class="bis-success" style="display:none;">
+      {{ block.settings.success_message | default: "You're on the list! We'll email you when this is back in stock." }}
+    </div>
+    <div class="bis-error" style="display:none;"></div>
+  </form>
+</div>
+{%- endif -%}
+
+<script src="{{ 'notify-me.js' | asset_url }}" defer></script>

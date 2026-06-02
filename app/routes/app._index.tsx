@@ -1,359 +1,378 @@
-import { useEffect } from "react";
 import type {
   ActionFunctionArgs,
   HeadersFunction,
   LoaderFunctionArgs,
 } from "react-router";
-import { useFetcher } from "react-router";
-import { useAppBridge } from "@shopify/app-bridge-react";
-import { authenticate } from "../shopify.server";
+import { useLoaderData, useSubmit, Form, useNavigation } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { authenticate } from "../shopify.server";
+import {
+  getSubscriberStats,
+  findAllSubscribers,
+  type Subscriber,
+} from "../services/subscriber.server";
+import {
+  getShopSettings,
+  DEFAULT_SETTINGS,
+  PLAN_LIMITS,
+} from "../services/notification.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.admin(request);
+  const { session } = await authenticate.admin(request);
+  const shop = session.shop;
 
-  return null;
-};
+  const url = new URL(request.url);
+  const statusFilter = url.searchParams.get("status") ?? "";
+  const sortParam = url.searchParams.get("sort") ?? "";
+  const sort: "subscribedAt_asc" | "subscribedAt_desc" =
+    sortParam === "subscribedAt_asc" ? "subscribedAt_asc" : "subscribedAt_desc";
+  const page = parseInt(url.searchParams.get("page") ?? "1", 10);
+  const pageSize = 50;
 
-export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
-  const color = ["Red", "Orange", "Yellow", "Green"][
-    Math.floor(Math.random() * 4)
-  ];
-  const response = await admin.graphql(
-    `#graphql
-      mutation populateProduct($product: ProductCreateInput!) {
-        productCreate(product: $product) {
-          product {
-            id
-            title
-            handle
-            status
-            variants(first: 10) {
-              edges {
-                node {
-                  id
-                  price
-                  barcode
-                  createdAt
-                }
-              }
-            }
-            demoInfo: metafield(namespace: "$app", key: "demo_info") {
-              jsonValue
-            }
-          }
-        }
-      }`,
-    {
-      variables: {
-        product: {
-          title: `${color} Snowboard`,
-          metafields: [
-            {
-              namespace: "$app",
-              key: "demo_info",
-              value: "Created by React Router Template",
-            },
-          ],
-        },
-      },
-    },
-  );
-  const responseJson = await response.json();
+  const [stats, { subscribers, total }, settings] = await Promise.all([
+    getSubscriberStats(shop),
+    findAllSubscribers({
+      shop,
+      status: statusFilter || undefined,
+      sort,
+      page,
+      pageSize,
+    }),
+    getShopSettings(shop),
+  ]);
 
-  const product = responseJson.data!.productCreate!.product!;
-  const variantId = product.variants.edges[0]!.node!.id!;
-
-  const variantResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpdateVariant($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-      productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-        productVariants {
-          id
-          price
-          barcode
-          createdAt
-        }
-      }
-    }`,
-    {
-      variables: {
-        productId: product.id,
-        variants: [{ id: variantId, price: "100.00" }],
-      },
-    },
-  );
-
-  const variantResponseJson = await variantResponse.json();
-
-  const metaobjectResponse = await admin.graphql(
-    `#graphql
-    mutation shopifyReactRouterTemplateUpsertMetaobject($handle: MetaobjectHandleInput!, $metaobject: MetaobjectUpsertInput!) {
-      metaobjectUpsert(handle: $handle, metaobject: $metaobject) {
-        metaobject {
-          id
-          handle
-          title: field(key: "title") {
-            jsonValue
-          }
-          description: field(key: "description") {
-            jsonValue
-          }
-        }
-        userErrors {
-          field
-          message
-        }
-      }
-    }`,
-    {
-      variables: {
-        handle: {
-          type: "$app:example",
-          handle: "demo-entry",
-        },
-        metaobject: {
-          fields: [
-            { key: "title", value: "Demo Entry" },
-            {
-              key: "description",
-              value:
-                "This metaobject was created by the Shopify app template to demonstrate the metaobject API.",
-            },
-          ],
-        },
-      },
-    },
-  );
-
-  const metaobjectResponseJson = await metaobjectResponse.json();
+  const resolvedSettings = settings ?? DEFAULT_SETTINGS;
+  const planLimit = PLAN_LIMITS[resolvedSettings.plan] ?? PLAN_LIMITS["FREE"];
+  const emailsRemaining = Math.max(0, planLimit - stats.sentThisMonth);
+  const planLimitReached = stats.sentThisMonth >= planLimit;
 
   return {
-    product: responseJson!.data!.productCreate!.product,
-    variant:
-      variantResponseJson!.data!.productVariantsBulkUpdate!.productVariants,
-    metaobject:
-      metaobjectResponseJson!.data!.metaobjectUpsert!.metaobject,
+    stats,
+    subscribers,
+    total,
+    statusFilter,
+    sort,
+    page,
+    pageSize,
+    autoSendEnabled: resolvedSettings.autoSendEnabled,
+    plan: resolvedSettings.plan,
+    planLimit,
+    emailsRemaining,
+    planLimitReached,
   };
 };
 
-export default function Index() {
-  const fetcher = useFetcher<typeof action>();
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const { session } = await authenticate.admin(request);
+  void session;
 
-  const shopify = useAppBridge();
-  const isLoading =
-    ["loading", "submitting"].includes(fetcher.state) &&
-    fetcher.formMethod === "POST";
+  const formData = await request.formData();
+  const intent = formData.get("intent");
 
-  useEffect(() => {
-    if (fetcher.data?.product?.id) {
-      shopify.toast.show("Product created");
+  if (intent === "send_now") {
+    // TODO: Phase 1 — call NotificationService.sendRestock for all pending variants
+    return { success: true, message: "Manual send triggered (stub)" };
+  }
+
+  return { success: false, message: "Unknown action" };
+};
+
+const statusStyle: Record<string, React.CSSProperties> = {
+  PENDING: {
+    backgroundColor: "#ffc453",
+    color: "#3d2400",
+    padding: "2px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-block",
+  },
+  NOTIFIED: {
+    backgroundColor: "#b5e3b5",
+    color: "#1a3c1a",
+    padding: "2px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-block",
+  },
+  UNSUBSCRIBED: {
+    backgroundColor: "#e4e5e7",
+    color: "#6d7175",
+    padding: "2px 8px",
+    borderRadius: "4px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-block",
+  },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  return (
+    <span style={statusStyle[status] ?? statusStyle["PENDING"]}>
+      {status.charAt(0) + status.slice(1).toLowerCase()}
+    </span>
+  );
+}
+
+function SubscriberRow({ sub }: { sub: Subscriber }) {
+  return (
+    <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
+      <td style={{ padding: "10px 12px" }}>{sub.email}</td>
+      <td style={{ padding: "10px 12px", fontFamily: "monospace" }}>{sub.productId}</td>
+      <td style={{ padding: "10px 12px", fontFamily: "monospace" }}>{sub.variantId}</td>
+      <td style={{ padding: "10px 12px" }}>
+        <StatusBadge status={sub.status} />
+      </td>
+      <td style={{ padding: "10px 12px" }}>
+        {new Date(sub.subscribedAt).toLocaleDateString()}
+      </td>
+    </tr>
+  );
+}
+
+export default function Dashboard() {
+  const {
+    stats,
+    subscribers,
+    total,
+    statusFilter,
+    sort,
+    page,
+    pageSize,
+    autoSendEnabled,
+    plan,
+    planLimit,
+    emailsRemaining,
+    planLimitReached,
+  } = useLoaderData<typeof loader>();
+
+  const submit = useSubmit();
+  const navigation = useNavigation();
+  const isSubmitting = navigation.state === "submitting";
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  function buildUrl(params: Record<string, string>) {
+    const base = new URLSearchParams({
+      status: statusFilter,
+      sort,
+      page: String(page),
+    });
+    for (const [k, v] of Object.entries(params)) {
+      base.set(k, v);
     }
-  }, [fetcher.data?.product?.id, shopify]);
-
-  const generateProduct = () => fetcher.submit({}, { method: "POST" });
+    return `/app?${base.toString()}`;
+  }
 
   return (
-    <s-page heading="Shopify app template">
-      <s-button slot="primary-action" onClick={generateProduct}>
-        Generate a product
-      </s-button>
+    <s-page heading="Back in Stock — Dashboard">
+      <s-stack direction="block" gap="base">
 
-      <s-section heading="Congrats on creating a new Shopify app 🎉">
-        <s-paragraph>
-          This embedded app template uses{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/tools/app-bridge"
-            target="_blank"
-          >
-            App Bridge
-          </s-link>{" "}
-          interface examples like an{" "}
-          <s-link href="/app/additional">additional page in the app nav</s-link>
-          , as well as an{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            Admin GraphQL
-          </s-link>{" "}
-          mutation demo, to provide a starting point for app development.
-        </s-paragraph>
-      </s-section>
-      <s-section heading="Get started with products">
-        <s-paragraph>
-          Generate a product with GraphQL and get the JSON output for that
-          product. Learn more about the{" "}
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql/latest/mutations/productCreate"
-            target="_blank"
-          >
-            productCreate
-          </s-link>{" "}
-          mutation in our API references. Includes a product{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metafields"
-            target="_blank"
-          >
-            metafield
-          </s-link>{" "}
-          and{" "}
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data/metaobjects"
-            target="_blank"
-          >
-            metaobject
-          </s-link>
-          .
-        </s-paragraph>
-        <s-stack direction="inline" gap="base">
-          <s-button
-            onClick={generateProduct}
-            {...(isLoading ? { loading: true } : {})}
-          >
-            Generate a product
-          </s-button>
-          {fetcher.data?.product && (
-            <s-button
-              onClick={() => {
-                shopify.intents.invoke?.("edit:shopify/Product", {
-                  value: fetcher.data?.product?.id,
-                });
-              }}
-              target="_blank"
-              variant="tertiary"
-            >
-              Edit product
-            </s-button>
-          )}
-        </s-stack>
-        {fetcher.data?.product && (
-          <s-section heading="productCreate mutation">
-            <s-stack direction="block" gap="base">
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
+        {/* Auto-send paused banner */}
+        {!autoSendEnabled && (
+          <s-banner tone="warning">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <s-text>
+                Auto-send is paused. Subscribers won&apos;t receive emails when items restock.
+              </s-text>
+              <Form method="post">
+                <input type="hidden" name="intent" value="send_now" />
+                <s-button
+                  type="submit"
+                  {...(isSubmitting ? { loading: true } : {})}
                 >
-                  <code>{JSON.stringify(fetcher.data.product, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>productVariantsBulkUpdate mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <code>{JSON.stringify(fetcher.data.variant, null, 2)}</code>
-                </pre>
-              </s-box>
-
-              <s-heading>metaobjectUpsert mutation</s-heading>
-              <s-box
-                padding="base"
-                borderWidth="base"
-                borderRadius="base"
-                background="subdued"
-              >
-                <pre
-                  style={{
-                    margin: 0,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                  }}
-                >
-                  <code>
-                    {JSON.stringify(fetcher.data.metaobject, null, 2)}
-                  </code>
-                </pre>
-              </s-box>
-            </s-stack>
-          </s-section>
+                  Send now
+                </s-button>
+              </Form>
+            </div>
+          </s-banner>
         )}
-      </s-section>
 
-      <s-section slot="aside" heading="App template specs">
-        <s-paragraph>
-          <s-text>Framework: </s-text>
-          <s-link href="https://reactrouter.com/" target="_blank">
-            React Router
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Interface: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/app-home/using-polaris-components"
-            target="_blank"
-          >
-            Polaris web components
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>API: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/api/admin-graphql"
-            target="_blank"
-          >
-            GraphQL
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Custom data: </s-text>
-          <s-link
-            href="https://shopify.dev/docs/apps/build/custom-data"
-            target="_blank"
-          >
-            Metafields &amp; metaobjects
-          </s-link>
-        </s-paragraph>
-        <s-paragraph>
-          <s-text>Database: </s-text>
-          <s-link href="https://www.prisma.io/" target="_blank">
-            Prisma
-          </s-link>
-        </s-paragraph>
-      </s-section>
+        {/* Plan limit reached banner */}
+        {planLimitReached && (
+          <s-banner tone="critical">
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <s-text>
+                You&apos;ve reached your {plan} plan limit of {planLimit} emails this month.
+              </s-text>
+              <s-link href="/app/settings">Upgrade plan</s-link>
+            </div>
+          </s-banner>
+        )}
 
-      <s-section slot="aside" heading="Next steps">
-        <s-unordered-list>
-          <s-list-item>
-            Build an{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/getting-started/build-app-example"
-              target="_blank"
+        {/* Stats row */}
+        <s-section>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, 1fr)",
+              gap: "16px",
+            }}
+          >
+            {[
+              { label: "Total Subscribers", value: stats.total },
+              { label: "Pending Alerts", value: stats.pending },
+              { label: "Emails Sent This Month", value: stats.sentThisMonth },
+              { label: `${plan} plan — emails remaining`, value: emailsRemaining },
+            ].map(({ label, value }) => (
+              <div
+                key={label}
+                style={{
+                  border: "1px solid #e4e5e7",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  textAlign: "center",
+                }}
+              >
+                <div style={{ fontSize: "28px", fontWeight: 700 }}>{value}</div>
+                <div style={{ fontSize: "13px", color: "#6d7175", marginTop: "4px" }}>{label}</div>
+              </div>
+            ))}
+          </div>
+        </s-section>
+
+        {/* Filters and controls */}
+        <s-section heading="Subscribers">
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: "12px",
+              marginBottom: "16px",
+            }}
+          >
+            <div>
+              <div style={{ fontSize: "13px", marginBottom: "4px" }}>Filter by status</div>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  submit(
+                    { status: e.target.value, sort, page: "1" },
+                    { method: "get", action: "/app" },
+                  );
+                }}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: "4px",
+                  border: "1px solid #c9cccf",
+                }}
+              >
+                <option value="">All statuses</option>
+                <option value="PENDING">Pending</option>
+                <option value="NOTIFIED">Notified</option>
+                <option value="UNSUBSCRIBED">Unsubscribed</option>
+              </select>
+            </div>
+
+            <div>
+              <div style={{ fontSize: "13px", marginBottom: "4px" }}>Sort by date</div>
+              <select
+                value={sort}
+                onChange={(e) => {
+                  submit(
+                    { status: statusFilter, sort: e.target.value, page: "1" },
+                    { method: "get", action: "/app" },
+                  );
+                }}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: "4px",
+                  border: "1px solid #c9cccf",
+                }}
+              >
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+
+            <s-link href="/app/subscribers/export">Export CSV</s-link>
+          </div>
+
+          {/* Subscriber table */}
+          <div style={{ overflowX: "auto" }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                fontSize: "14px",
+              }}
             >
-              example app
-            </s-link>
-          </s-list-item>
-          <s-list-item>
-            Explore Shopify&apos;s API with{" "}
-            <s-link
-              href="https://shopify.dev/docs/apps/tools/graphiql-admin-api"
-              target="_blank"
+              <thead>
+                <tr
+                  style={{
+                    borderBottom: "2px solid #e4e5e7",
+                    textAlign: "left",
+                  }}
+                >
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Email</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Product ID</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Variant ID</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Status</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Date Subscribed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subscribers.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      style={{
+                        padding: "24px 12px",
+                        textAlign: "center",
+                        color: "#6d7175",
+                      }}
+                    >
+                      No subscribers yet. Once shoppers sign up for back-in-stock alerts,
+                      they&apos;ll appear here.
+                    </td>
+                  </tr>
+                ) : (
+                  subscribers.map((sub) => (
+                    <SubscriberRow key={sub.id} sub={sub} />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {total > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginTop: "16px",
+              }}
             >
-              GraphiQL
-            </s-link>
-          </s-list-item>
-        </s-unordered-list>
-      </s-section>
+              <s-text>
+                Page {page} of {totalPages} ({total} total)
+              </s-text>
+              <div style={{ display: "flex", gap: "8px" }}>
+                {page > 1 ? (
+                  <s-link href={buildUrl({ page: String(page - 1) })}>
+                    <s-button variant="tertiary">Previous</s-button>
+                  </s-link>
+                ) : (
+                  <s-button variant="tertiary" disabled>
+                    Previous
+                  </s-button>
+                )}
+                {page < totalPages ? (
+                  <s-link href={buildUrl({ page: String(page + 1) })}>
+                    <s-button variant="tertiary">Next</s-button>
+                  </s-link>
+                ) : (
+                  <s-button variant="tertiary" disabled>
+                    Next
+                  </s-button>
+                )}
+              </div>
+            </div>
+          )}
+        </s-section>
+      </s-stack>
     </s-page>
   );
 }
