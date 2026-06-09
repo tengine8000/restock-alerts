@@ -6,7 +6,7 @@ application_url = "https://example.com"
 embedded = true
 
 [access_scopes]
-scopes = "read_products"
+scopes = "read_products,read_inventory"
 
 [webhooks]
 api_version = "2026-07"
@@ -22,6 +22,11 @@ api_version = "2026-07"
   [[webhooks.subscriptions]]
   uri = "/webhooks/inventory_levels/update"
   topics = [ "inventory_levels/update" ]
+
+[app_proxy]
+url = "https://example.com/api"
+subpath = "back-in-stock"
+prefix = "apps"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]

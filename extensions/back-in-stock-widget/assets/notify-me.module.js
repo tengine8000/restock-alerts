@@ -53,7 +53,7 @@ export function initForm(container) {
     var originalText = submitBtn.textContent;
     submitBtn.textContent = '...';
 
-    fetch(appUrl + '/api/subscribe', {
+    fetch(appUrl + '/subscribe', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

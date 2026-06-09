@@ -1,35 +1,297 @@
 {%- if product.selected_or_first_available_variant.available == false -%}
+
+{%- liquid
+  assign btn_radius   = block.settings.button_border_radius | default: 4
+  assign btn_bg       = block.settings.button_color         | default: '#000000'
+  assign btn_color    = block.settings.button_text_color    | default: '#ffffff'
+  assign btn_font     = block.settings.font_size            | default: 14
+  assign btn_weight   = block.settings.font_weight          | default: '600'
+  assign btn_pad_v    = block.settings.button_padding_v     | default: 10
+  assign btn_pad_h    = block.settings.button_padding_h     | default: 20
+  assign btn_bw       = block.settings.button_border_width  | default: 0
+  assign btn_bc       = block.settings.button_border_color  | default: '#000000'
+  assign btn_width    = block.settings.button_full_width    | default: false
+
+  assign inp_bg       = block.settings.input_bg_color       | default: '#ffffff'
+  assign inp_color    = block.settings.input_text_color     | default: '#111111'
+  assign inp_border   = block.settings.input_border_color   | default: '#cccccc'
+  assign inp_bw       = block.settings.input_border_width   | default: 1
+  assign inp_font     = block.settings.input_font_size      | default: 14
+  assign inp_ph       = block.settings.input_placeholder    | default: 'Enter your email'
+
+  assign gap          = block.settings.field_gap            | default: 8
+  assign layout       = block.settings.layout               | default: 'stacked'
+
+  assign success_msg  = block.settings.success_message      | default: "You're on the list! We'll email you when this is back in stock."
+  assign success_col  = block.settings.success_color        | default: '#008060'
+  assign error_col    = block.settings.error_color          | default: '#d82c0d'
+-%}
+
 <div
   class="bis-notify-me"
   data-variant-id="{{ product.selected_or_first_available_variant.id }}"
   data-product-id="{{ product.id }}"
   data-shop="{{ shop.permanent_domain }}"
-  data-app-url="https://{{ request.host }}"
+  data-app-url="https://{{ shop.permanent_domain }}/apps/back-in-stock"
 >
-  <form class="bis-form" novalidate>
-    <div class="bis-field">
+  <form
+    class="bis-form"
+    novalidate
+    style="display:flex; flex-direction:{% if layout == 'inline' %}row{% else %}column{% endif %}; gap:{{ gap }}px; align-items:{% if layout == 'inline' %}stretch{% else %}flex-start{% endif %};"
+  >
+    <div class="bis-field" style="{% if layout == 'inline' %}flex:1 1 auto;{% else %}width:100%;{% endif %}">
       <input
         type="email"
         name="email"
         class="bis-email-input"
-        placeholder="Enter your email"
+        placeholder="{{ inp_ph }}"
         required
         autocomplete="email"
+        style="
+          width: 100%;
+          box-sizing: border-box;
+          background-color: {{ inp_bg }};
+          color: {{ inp_color }};
+          border: {{ inp_bw }}px solid {{ inp_border }};
+          border-radius: {{ btn_radius }}px;
+          font-size: {{ inp_font }}px;
+          padding: {{ btn_pad_v }}px {{ btn_pad_h }}px;
+        "
       />
     </div>
+
     <button
       type="submit"
       class="bis-submit-btn"
-      style="background-color: {{ block.settings.button_color | default: '#000000' }}; color: {{ block.settings.button_text_color | default: '#ffffff' }};"
+      style="
+        background-color: {{ btn_bg }};
+        color: {{ btn_color }};
+        border: {{ btn_bw }}px solid {{ btn_bc }};
+        border-radius: {{ btn_radius }}px;
+        font-size: {{ btn_font }}px;
+        font-weight: {{ btn_weight }};
+        padding: {{ btn_pad_v }}px {{ btn_pad_h }}px;
+        width: {% if btn_width %}100%{% else %}auto{% endif %};
+        white-space: nowrap;
+        cursor: pointer;
+        line-height: 1;
+      "
     >
       {{ block.settings.button_text | default: 'Notify Me When Available' }}
     </button>
-    <div class="bis-success" style="display:none;">
-      {{ block.settings.success_message | default: "You're on the list! We'll email you when this is back in stock." }}
-    </div>
-    <div class="bis-error" style="display:none;"></div>
   </form>
+
+  <div
+    class="bis-success"
+    style="display:none; margin-top:8px; color:{{ success_col }};"
+  >
+    {{ success_msg }}
+  </div>
+  <div
+    class="bis-error"
+    style="display:none; margin-top:8px; color:{{ error_col }};"
+  ></div>
 </div>
+
 {%- endif -%}
 
 <script src="{{ 'notify-me.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Back in Stock",
+  "target": "section",
+  "javascript": "notify-me.js",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Button"
+    },
+    {
+      "type": "text",
+      "id": "button_text",
+      "label": "Label",
+      "default": "Notify Me When Available"
+    },
+    {
+      "type": "color",
+      "id": "button_color",
+      "label": "Background color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "button_text_color",
+      "label": "Text color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "select",
+      "id": "font_weight",
+      "label": "Font weight",
+      "options": [
+        { "value": "400", "label": "Normal" },
+        { "value": "600", "label": "Semi-bold" },
+        { "value": "700", "label": "Bold" }
+      ],
+      "default": "600"
+    },
+    {
+      "type": "range",
+      "id": "font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "range",
+      "id": "button_padding_v",
+      "label": "Vertical padding",
+      "min": 6,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "button_padding_h",
+      "label": "Horizontal padding",
+      "min": 8,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 20
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "button_border_width",
+      "label": "Border width",
+      "min": 0,
+      "max": 5,
+      "step": 1,
+      "unit": "px",
+      "default": 0
+    },
+    {
+      "type": "color",
+      "id": "button_border_color",
+      "label": "Border color",
+      "default": "#000000"
+    },
+    {
+      "type": "checkbox",
+      "id": "button_full_width",
+      "label": "Full width",
+      "default": false
+    },
+    {
+      "type": "header",
+      "content": "Input field"
+    },
+    {
+      "type": "text",
+      "id": "input_placeholder",
+      "label": "Placeholder text",
+      "default": "Enter your email"
+    },
+    {
+      "type": "color",
+      "id": "input_bg_color",
+      "label": "Background color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "input_text_color",
+      "label": "Text color",
+      "default": "#111111"
+    },
+    {
+      "type": "color",
+      "id": "input_border_color",
+      "label": "Border color",
+      "default": "#cccccc"
+    },
+    {
+      "type": "range",
+      "id": "input_border_width",
+      "label": "Border width",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "unit": "px",
+      "default": 1
+    },
+    {
+      "type": "range",
+      "id": "input_font_size",
+      "label": "Font size",
+      "min": 12,
+      "max": 20,
+      "step": 1,
+      "unit": "px",
+      "default": 14
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Field arrangement",
+      "options": [
+        { "value": "stacked", "label": "Stacked — input above button" },
+        { "value": "inline", "label": "Inline — input beside button" }
+      ],
+      "default": "stacked"
+    },
+    {
+      "type": "range",
+      "id": "field_gap",
+      "label": "Gap between fields",
+      "min": 4,
+      "max": 24,
+      "step": 2,
+      "unit": "px",
+      "default": 8
+    },
+    {
+      "type": "header",
+      "content": "Messages"
+    },
+    {
+      "type": "text",
+      "id": "success_message",
+      "label": "Success message",
+      "default": "You're on the list! We'll email you when this is back in stock."
+    },
+    {
+      "type": "color",
+      "id": "success_color",
+      "label": "Success text color",
+      "default": "#008060"
+    },
+    {
+      "type": "color",
+      "id": "error_color",
+      "label": "Error text color",
+      "default": "#d82c0d"
+    }
+  ]
+}
+{% endschema %}

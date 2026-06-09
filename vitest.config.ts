@@ -14,7 +14,7 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./app/test/setup.ts"],
-    exclude: ["**/node_modules/**", "**/dist/**", "extensions/**", ".claude/**"],
+    exclude: ["**/node_modules/**", "**/dist/**", "extensions/**", ".claude/**", ".shopify/**"],
     coverage: {
       provider: "v8",
       thresholds: { lines: 80 },

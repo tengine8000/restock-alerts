@@ -16,7 +16,7 @@ export class AppResendProvider implements EmailProvider {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${fromName} <onboarding@resend.dev>`,
+        from: `${fromName} <${process.env.RESEND_FROM_EMAIL ?? "onboarding@resend.dev"}>`,
         to: [to],
         subject,
         html,

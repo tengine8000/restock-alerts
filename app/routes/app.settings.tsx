@@ -17,7 +17,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
   const settings = (await getShopSettings(shop)) ?? DEFAULT_SETTINGS;
-  return { settings };
+  const planLimit = PLAN_LIMITS[settings.plan] ?? PLAN_LIMITS["FREE"];
+  return { settings, planLimit };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -45,12 +46,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function SettingsPage() {
-  const { settings } = useLoaderData<typeof loader>();
+  const { settings, planLimit } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSaving = navigation.state === "submitting";
-
-  const planLimit = PLAN_LIMITS[settings.plan] ?? PLAN_LIMITS["FREE"];
 
   return (
     <s-page heading="Email Settings">

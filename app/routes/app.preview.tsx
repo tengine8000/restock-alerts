@@ -30,13 +30,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
 
-  // Use the shop domain as a proxy for merchant email until
-  // Phase 1 wires up the real shop owner email from the Admin API.
-  const merchantEmail = `owner@${shop}`;
+  const formData = await request.formData();
+  const testEmail = (formData.get("testEmail") as string | null)?.trim() ?? "";
+
+  if (!testEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testEmail)) {
+    return { success: false, error: "Please enter a valid email address.", sentTo: null };
+  }
 
   try {
-    await sendTestEmail(shop, merchantEmail);
-    return { success: true, error: null, sentTo: merchantEmail };
+    await sendTestEmail(shop, testEmail);
+    return { success: true, error: null, sentTo: testEmail };
   } catch (err) {
     return { success: false, error: String(err), sentTo: null };
   }
@@ -97,16 +100,28 @@ export default function PreviewPage() {
         <s-section heading="Send a test email">
           <s-stack direction="block" gap="base">
             <s-text>
-              Send a test email to your store owner address to verify your template looks correct.
+              Enter an email address to receive a test notification and verify your template looks correct.
             </s-text>
             <Form method="post">
-              <s-button
-                type="submit"
-                variant="primary"
-                {...(isSending ? { loading: true } : {})}
-              >
-                Send test email
-              </s-button>
+              <s-stack direction="block" gap="base">
+                <s-text-field
+                  label="Send test to"
+                  id="testEmail"
+                  name="testEmail"
+                  type="email"
+                  placeholder="you@example.com"
+                  autocomplete="email"
+                />
+                <div>
+                  <s-button
+                    type="submit"
+                    variant="primary"
+                    {...(isSending ? { loading: true } : {})}
+                  >
+                    Send test email
+                  </s-button>
+                </div>
+              </s-stack>
             </Form>
           </s-stack>
         </s-section>
