@@ -60,7 +60,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   // Fire-and-forget: return 200 immediately so Shopify doesn't retry
-  NotificationService.sendRestock({ shop, variantId }).catch((err: unknown) => {
+  NotificationService.sendRestock({ shop, variantId, admin: admin.graphql.bind(admin) }).catch((err: unknown) => {
     if (err instanceof PlanLimitError) {
       console.log(`[webhook:inventory_levels/update] Plan limit reached for ${shop}: ${err.message}`);
     } else {

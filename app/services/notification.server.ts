@@ -42,6 +42,11 @@ export interface RestockResult {
   failed: number;
 }
 
+type AdminGraphQL = (
+  query: string,
+  options?: { variables?: Record<string, unknown> }
+) => Promise<Response>;
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
@@ -49,6 +54,38 @@ function escapeHtml(str: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+const PRODUCT_FROM_VARIANT = `#graphql
+  query ProductFromVariant($id: ID!) {
+    productVariant(id: $id) {
+      product {
+        title
+        handle
+        onlineStoreUrl
+      }
+    }
+  }
+`;
+
+async function fetchProductInfo(
+  admin: AdminGraphQL,
+  variantId: string,
+  shop: string
+): Promise<{ title: string; url: string }> {
+  try {
+    const res = await admin(PRODUCT_FROM_VARIANT, {
+      variables: { id: `gid://shopify/ProductVariant/${variantId}` },
+    });
+    const json = await res.json();
+    const product = json?.data?.productVariant?.product;
+    if (!product) return { title: "Your Product", url: `https://${shop}` };
+    const url =
+      product.onlineStoreUrl ?? `https://${shop}/products/${product.handle}`;
+    return { title: product.title, url };
+  } catch {
+    return { title: "Your Product", url: `https://${shop}` };
+  }
 }
 
 function buildEmailHtml(
@@ -134,8 +171,9 @@ export const NotificationService = {
   async sendRestock(opts: {
     shop: string;
     variantId: string;
+    admin?: AdminGraphQL;
   }): Promise<RestockResult> {
-    const { shop, variantId } = opts;
+    const { shop, variantId, admin } = opts;
 
     const settings = await prisma.shopSettings.findUnique({
       where: { shop },
@@ -184,9 +222,9 @@ export const NotificationService = {
       settings?.emailBodyHtml ??
       '<p>Good news! <a href="{{product_url}}">{{product_title}}</a> is back in stock. Grab yours before it sells out!</p>';
 
-    // Placeholder product info — Phase 2 will fetch real product data via Admin GraphQL
-    const productTitle = "Your Product";
-    const productUrl = `https://${shop}/products/unknown`;
+    const { title: productTitle, url: productUrl } = admin
+      ? await fetchProductInfo(admin, variantId, shop)
+      : { title: "Your Product", url: `https://${shop}` };
 
     let sent = 0;
     let failed = 0;
