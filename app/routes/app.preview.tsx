@@ -108,9 +108,7 @@ export default function PreviewPage() {
                   label="Send test to"
                   id="testEmail"
                   name="testEmail"
-                  type="email"
                   placeholder="you@example.com"
-                  autocomplete="email"
                 />
                 <div>
                   <s-button
