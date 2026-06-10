@@ -42,12 +42,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         variables: { id: `gid://shopify/InventoryItem/${inventoryItemId}` },
       });
       const json = await response.json();
-      const gid = json?.data?.inventoryItem?.variant?.id;
+      const gid: string | undefined = json?.data?.inventoryItem?.variant?.id;
       if (!gid) {
         console.warn(`[webhook:inventory_levels/update] No variant for inventory item ${inventoryItemId} on ${shop}`);
         return new Response(null, { status: 200 });
       }
-      variantId = gid;
+      // Liquid stores plain numeric IDs; strip "gid://shopify/ProductVariant/" prefix to match
+      variantId = gid.split("/").pop()!;
     } catch (err) {
       console.error(`[webhook:inventory_levels/update] GraphQL lookup failed for ${inventoryItemId} on ${shop}:`, err);
       return new Response(null, { status: 200 });
