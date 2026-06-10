@@ -18,6 +18,9 @@
   assign inp_bw       = block.settings.input_border_width   | default: 1
   assign inp_font     = block.settings.input_font_size      | default: 14
   assign inp_ph       = block.settings.input_placeholder    | default: 'Enter your email'
+  assign inp_radius   = block.settings.input_border_radius  | default: 4
+  assign inp_pad_v    = block.settings.input_padding_v      | default: 10
+  assign inp_pad_h    = block.settings.input_padding_h      | default: 20
 
   assign gap          = block.settings.field_gap            | default: 8
   assign layout       = block.settings.layout               | default: 'stacked'
@@ -53,9 +56,9 @@
           background-color: {{ inp_bg }};
           color: {{ inp_color }};
           border: {{ inp_bw }}px solid {{ inp_border }};
-          border-radius: {{ btn_radius }}px;
+          border-radius: {{ inp_radius }}px;
           font-size: {{ inp_font }}px;
-          padding: {{ btn_pad_v }}px {{ btn_pad_h }}px;
+          padding: {{ inp_pad_v }}px {{ inp_pad_h }}px;
         "
       />
     </div>
@@ -245,6 +248,36 @@
       "step": 1,
       "unit": "px",
       "default": 14
+    },
+    {
+      "type": "range",
+      "id": "input_border_radius",
+      "label": "Border radius",
+      "min": 0,
+      "max": 50,
+      "step": 1,
+      "unit": "px",
+      "default": 4
+    },
+    {
+      "type": "range",
+      "id": "input_padding_v",
+      "label": "Vertical padding",
+      "min": 6,
+      "max": 24,
+      "step": 1,
+      "unit": "px",
+      "default": 10
+    },
+    {
+      "type": "range",
+      "id": "input_padding_h",
+      "label": "Horizontal padding",
+      "min": 8,
+      "max": 48,
+      "step": 2,
+      "unit": "px",
+      "default": 20
     },
     {
       "type": "header",
