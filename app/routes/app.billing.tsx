@@ -1,5 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useActionData, useNavigation, Form } from "react-router";
+import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
 import { getShopSettings } from "../services/notification.server";
 
@@ -98,11 +99,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { error: "Could not create subscription. Please try again." };
   }
 
-  // Redirect merchant to Shopify's billing confirmation page
-  throw new Response(null, {
-    status: 302,
-    headers: { Location: result.confirmationUrl },
-  });
+  // Return the URL to the component — it must navigate window.top, not the iframe
+  return { confirmationUrl: result.confirmationUrl as string, error: null };
 };
 
 export default function BillingPage() {
@@ -111,6 +109,13 @@ export default function BillingPage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
   const submittingPlanId = navigation.formData?.get("planId") as string | null;
+
+  // Billing confirmation page must load in the top frame, not the iframe
+  useEffect(() => {
+    if (actionData && "confirmationUrl" in actionData && actionData.confirmationUrl) {
+      window.top ? (window.top.location.href = actionData.confirmationUrl) : (window.location.href = actionData.confirmationUrl);
+    }
+  }, [actionData]);
 
   return (
     <s-page heading="Choose a plan">
