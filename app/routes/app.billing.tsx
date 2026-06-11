@@ -70,7 +70,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // page inside the proper app context, not as a bare top-level request.
   const shopSlug = session.shop.replace(".myshopify.com", "");
   const apiKey = process.env.SHOPIFY_API_KEY ?? "";
-  const returnUrl = `https://admin.shopify.com/store/${shopSlug}/apps/${apiKey}/app/billing/confirm`;
+  const returnUrl = `https://admin.shopify.com/store/${shopSlug}/apps/${apiKey}/app/billing-confirm`;
 
   const response = await admin.graphql(CREATE_SUBSCRIPTION, {
     variables: {
