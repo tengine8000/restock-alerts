@@ -286,7 +286,44 @@ export default function Dashboard() {
               </select>
             </div>
 
-            <s-link href="/app/subscribers/export">Export CSV</s-link>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <a
+                href={`/app/subscribers/export?status=${statusFilter}&format=csv`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "inline-block",
+                  padding: "6px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #c9cccf",
+                  background: "#fff",
+                  color: "#202223",
+                  fontSize: "14px",
+                  textDecoration: "none",
+                  lineHeight: "1.5",
+                }}
+              >
+                Export CSV
+              </a>
+              <a
+                href={`/app/subscribers/export?status=${statusFilter}&format=json`}
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "inline-block",
+                  padding: "6px 12px",
+                  borderRadius: "4px",
+                  border: "1px solid #c9cccf",
+                  background: "#fff",
+                  color: "#202223",
+                  fontSize: "14px",
+                  textDecoration: "none",
+                  lineHeight: "1.5",
+                }}
+              >
+                Export JSON
+              </a>
+            </div>
           </div>
 
           {/* Subscriber table */}
