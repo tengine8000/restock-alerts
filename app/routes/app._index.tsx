@@ -4,6 +4,7 @@ import type {
   LoaderFunctionArgs,
 } from "react-router";
 import { useLoaderData, useSubmit, Form, useNavigation } from "react-router";
+import { useState, useCallback } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import {
@@ -190,6 +191,32 @@ export default function Dashboard() {
   const submit = useSubmit();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
+  const [isExporting, setIsExporting] = useState<string | null>(null);
+
+  const handleExport = useCallback(
+    async (format: "csv" | "json") => {
+      setIsExporting(format);
+      try {
+        const params = new URLSearchParams({ status: statusFilter, format });
+        const res = await fetch(`/app/subscribers/export?${params}`);
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `subscribers.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {
+        // silent — browser will show nothing downloaded
+      } finally {
+        setIsExporting(null);
+      }
+    },
+    [statusFilter]
+  );
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -327,42 +354,36 @@ export default function Dashboard() {
             </div>
 
             <div style={{ display: "flex", gap: "8px" }}>
-              <a
-                href={`/app/subscribers/export?status=${statusFilter}&format=csv`}
-                target="_blank"
-                rel="noreferrer"
+              <button
+                onClick={() => handleExport("csv")}
+                disabled={isExporting !== null}
                 style={{
-                  display: "inline-block",
                   padding: "6px 12px",
                   borderRadius: "4px",
                   border: "1px solid #c9cccf",
                   background: "#fff",
                   color: "#202223",
                   fontSize: "14px",
-                  textDecoration: "none",
-                  lineHeight: "1.5",
+                  cursor: isExporting ? "wait" : "pointer",
                 }}
               >
-                Export CSV
-              </a>
-              <a
-                href={`/app/subscribers/export?status=${statusFilter}&format=json`}
-                target="_blank"
-                rel="noreferrer"
+                {isExporting === "csv" ? "Exporting…" : "Export CSV"}
+              </button>
+              <button
+                onClick={() => handleExport("json")}
+                disabled={isExporting !== null}
                 style={{
-                  display: "inline-block",
                   padding: "6px 12px",
                   borderRadius: "4px",
                   border: "1px solid #c9cccf",
                   background: "#fff",
                   color: "#202223",
                   fontSize: "14px",
-                  textDecoration: "none",
-                  lineHeight: "1.5",
+                  cursor: isExporting ? "wait" : "pointer",
                 }}
               >
-                Export JSON
-              </a>
+                {isExporting === "json" ? "Exporting…" : "Export JSON"}
+              </button>
             </div>
           </div>
 
