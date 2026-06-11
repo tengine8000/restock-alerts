@@ -56,7 +56,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { admin } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
 
   const formData = await request.formData();
   const planId = formData.get("planId") as string;
@@ -66,8 +66,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { error: "Invalid plan selected." };
   }
 
-  const url = new URL(request.url);
-  const returnUrl = `${url.origin}/app/billing/confirm`;
+  // returnUrl must be an embedded Admin URL so Shopify loads the confirm
+  // page inside the proper app context, not as a bare top-level request.
+  const shopSlug = session.shop.replace(".myshopify.com", "");
+  const apiKey = process.env.SHOPIFY_API_KEY ?? "";
+  const returnUrl = `https://admin.shopify.com/store/${shopSlug}/apps/${apiKey}/billing/confirm`;
 
   const response = await admin.graphql(CREATE_SUBSCRIPTION, {
     variables: {
