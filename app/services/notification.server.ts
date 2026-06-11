@@ -6,10 +6,9 @@ import { SubscriberService } from "~/services/subscriber.server";
 export type { ShopSettings };
 
 export const PLAN_LIMITS: Record<string, number> = {
-  FREE: 100,
-  STARTER: 2000,
-  GROWTH: 8000,
-  PRO: 25000,
+  FREE: 50,
+  STARTER: 1000,
+  GROWTH: 5000,
 };
 
 export const DEFAULT_SETTINGS: ShopSettings = {

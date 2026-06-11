@@ -23,6 +23,10 @@ api_version = "2026-07"
   uri = "/webhooks/inventory_levels/update"
   topics = [ "inventory_levels/update" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app_subscriptions/update"
+  topics = [ "app_subscriptions/update" ]
+
 [app_proxy]
 url = "https://example.com/api"
 subpath = "back-in-stock"

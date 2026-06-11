@@ -236,7 +236,7 @@ export default function Dashboard() {
               <s-text>
                 You&apos;ve reached your {plan} plan limit of {planLimit} emails this month.
               </s-text>
-              <s-link href="/app/settings">Upgrade plan</s-link>
+              <s-link href="/app/billing">Upgrade plan</s-link>
             </div>
           </s-banner>
         )}
