@@ -15,6 +15,8 @@ import {
   getShopSettings,
   DEFAULT_SETTINGS,
   PLAN_LIMITS,
+  NotificationService,
+  PlanLimitError,
 } from "../services/notification.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -63,15 +65,53 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  void session;
+  const { session, admin } = await authenticate.admin(request);
+  const shop = session.shop;
 
   const formData = await request.formData();
   const intent = formData.get("intent");
 
   if (intent === "send_now") {
-    // TODO: Phase 1 — call NotificationService.sendRestock for all pending variants
-    return { success: true, message: "Manual send triggered (stub)" };
+    // Find all distinct variantIds that have at least one PENDING subscriber
+    const pendingVariants = await import("../db.server").then(({ default: prisma }) =>
+      prisma.subscriber.findMany({
+        where: { shop, status: "PENDING" },
+        select: { variantId: true },
+        distinct: ["variantId"],
+      })
+    );
+
+    if (pendingVariants.length === 0) {
+      return { success: true, message: "No pending subscribers to notify." };
+    }
+
+    let totalSent = 0;
+    let totalFailed = 0;
+
+    for (const { variantId } of pendingVariants) {
+      try {
+        const result = await NotificationService.sendRestock({
+          shop,
+          variantId,
+          admin: admin.graphql.bind(admin),
+        });
+        totalSent += result.sent;
+        totalFailed += result.failed;
+      } catch (err) {
+        if (err instanceof PlanLimitError) {
+          return {
+            success: false,
+            message: `Plan limit reached — ${totalSent} email(s) sent before the cap. Upgrade your plan to send more.`,
+          };
+        }
+        totalFailed++;
+      }
+    }
+
+    return {
+      success: true,
+      message: `Done — ${totalSent} email(s) sent${totalFailed > 0 ? `, ${totalFailed} failed` : ""}.`,
+    };
   }
 
   return { success: false, message: "Unknown action" };
