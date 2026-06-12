@@ -28,7 +28,7 @@ const PRODUCT_IMAGES_QUERY = `#graphql
       ... on Product {
         id
         featuredImage {
-          url(transform: { maxWidth: 300, maxHeight: 300 })
+          url(transform: { maxWidth: 200, maxHeight: 200 })
           altText
         }
       }
@@ -78,13 +78,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     getProductGroups(shop),
   ]);
 
-  // For grid: filter to pending-only by default so merchants see what needs attention
   const gridSourceGroups =
     gridFilter === "all"
       ? allProductGroups
       : allProductGroups.filter((g) => g.pending > 0);
 
-  // Paginate the filtered set
   const gridTotal = gridSourceGroups.length;
   const gridTotalPages = Math.max(1, Math.ceil(gridTotal / GRID_PAGE_SIZE));
   const safeGridPage = Math.min(gridPage, gridTotalPages);
@@ -93,9 +91,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     safeGridPage * GRID_PAGE_SIZE,
   );
 
-  // Fetch images only for the current grid page; chunk for Shopify's 250-ID limit
+  // Always fetch images regardless of view — warms browser cache so grid feels instant
   const imageMap: Record<string, string> = {};
-  if (view === "grid" && pagedGroups.length > 0) {
+  if (pagedGroups.length > 0) {
     const chunks = chunkArray(
       pagedGroups.map((g) => `gid://shopify/Product/${g.productId}`),
       250,
@@ -140,9 +138,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     gridTotalPages,
     gridTotal,
     gridFilter,
-    // full list (all statuses) — used for the product filter dropdown in list view
     productGroups: allProductGroups,
-    // current page only (with images) — used for grid cards
     pagedProductGroups,
     autoSendEnabled: resolvedSettings.autoSendEnabled,
     plan: resolvedSettings.plan,
@@ -204,41 +200,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { success: false, message: "Unknown action" };
 };
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
-
-const statusStyle: Record<string, React.CSSProperties> = {
-  PENDING: { backgroundColor: "#ffc453", color: "#3d2400", padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: 600, display: "inline-block" },
-  NOTIFIED: { backgroundColor: "#b5e3b5", color: "#1a3c1a", padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: 600, display: "inline-block" },
-  UNSUBSCRIBED: { backgroundColor: "#e4e5e7", color: "#6d7175", padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: 600, display: "inline-block" },
-};
-
-function StatusBadge({ status }: { status: string }) {
-  return (
-    <span style={statusStyle[status] ?? statusStyle["PENDING"]}>
-      {status.charAt(0) + status.slice(1).toLowerCase()}
-    </span>
-  );
-}
-
-// ─── List view ────────────────────────────────────────────────────────────────
-
-function SubscriberRow({ sub }: { sub: Subscriber }) {
-  const productLabel = sub.productTitle ?? `Product #${sub.productId}`;
-  const variantLabel = sub.variantTitle && sub.variantTitle !== "Default Title" ? sub.variantTitle : null;
-  return (
-    <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
-      <td style={{ padding: "10px 12px" }}>{sub.email}</td>
-      <td style={{ padding: "10px 12px" }}>
-        <div>{productLabel}</div>
-        {variantLabel && <div style={{ fontSize: "12px", color: "#6d7175", marginTop: "2px" }}>{variantLabel}</div>}
-      </td>
-      <td style={{ padding: "10px 12px" }}><StatusBadge status={sub.status} /></td>
-      <td style={{ padding: "10px 12px" }}>{new Date(sub.subscribedAt).toLocaleDateString()}</td>
-    </tr>
-  );
-}
-
-// ─── Grid view ────────────────────────────────────────────────────────────────
+// ─── Utilities ────────────────────────────────────────────────────────────────
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${+(n / 1_000_000).toFixed(1)}M`;
@@ -246,6 +208,116 @@ function formatCount(n: number): string {
   if (n >= 1_000) return `${+(n / 1_000).toFixed(1)}k`;
   return String(n);
 }
+
+function avatarColor(email: string): string {
+  const palette = ["#4f86c6", "#26a06b", "#e8853a", "#9c6acb", "#e55f5f", "#3db5b5", "#d4a017"];
+  let hash = 0;
+  for (const c of email) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  return palette[hash % palette.length];
+}
+
+// ─── Status badge ─────────────────────────────────────────────────────────────
+
+const statusStyle: Record<string, React.CSSProperties> = {
+  PENDING: {
+    background: "#fff3cd",
+    color: "#7a4800",
+    border: "1px solid #ffc453",
+    padding: "3px 10px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+  },
+  NOTIFIED: {
+    background: "#e6f4ea",
+    color: "#1a5c2a",
+    border: "1px solid #8bc98b",
+    padding: "3px 10px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+  },
+  UNSUBSCRIBED: {
+    background: "#f1f2f3",
+    color: "#6d7175",
+    border: "1px solid #c9cccf",
+    padding: "3px 10px",
+    borderRadius: "20px",
+    fontSize: "12px",
+    fontWeight: 600,
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+  },
+};
+
+const statusDot: Record<string, string> = {
+  PENDING: "#f59e0b",
+  NOTIFIED: "#22c55e",
+  UNSUBSCRIBED: "#9ca3af",
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const key = status in statusStyle ? status : "PENDING";
+  return (
+    <span style={statusStyle[key]}>
+      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: statusDot[key] ?? "#9ca3af", display: "inline-block", flexShrink: 0 }} />
+      {status.charAt(0) + status.slice(1).toLowerCase()}
+    </span>
+  );
+}
+
+// ─── Email avatar ─────────────────────────────────────────────────────────────
+
+function EmailAvatar({ email }: { email: string }) {
+  return (
+    <div style={{
+      width: "30px", height: "30px", borderRadius: "50%",
+      background: avatarColor(email), color: "#fff",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: "12px", fontWeight: 700, flexShrink: 0,
+      textTransform: "uppercase",
+    }}>
+      {email[0]}
+    </div>
+  );
+}
+
+// ─── List row ─────────────────────────────────────────────────────────────────
+
+function SubscriberRow({ sub }: { sub: Subscriber }) {
+  const productLabel = sub.productTitle ?? `Product #${sub.productId}`;
+  const variantLabel = sub.variantTitle && sub.variantTitle !== "Default Title" ? sub.variantTitle : null;
+  return (
+    <tr style={{ borderBottom: "1px solid #f1f2f3" }}>
+      <td style={{ padding: "12px 16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <EmailAvatar email={sub.email} />
+          <span style={{ fontSize: "14px", color: "#202223" }}>{sub.email}</span>
+        </div>
+      </td>
+      <td style={{ padding: "12px 16px" }}>
+        <div style={{ fontSize: "14px", color: "#202223" }}>{productLabel}</div>
+        {variantLabel && <div style={{ fontSize: "12px", color: "#8c9196", marginTop: "2px" }}>{variantLabel}</div>}
+      </td>
+      <td style={{ padding: "12px 16px" }}><StatusBadge status={sub.status} /></td>
+      <td style={{ padding: "12px 16px", fontSize: "14px", color: "#6d7175" }}>
+        {new Date(sub.subscribedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" })}
+      </td>
+      <td style={{ padding: "12px 16px", textAlign: "center" }}>
+        <span style={{ fontSize: "18px", color: "#8c9196", cursor: "pointer", letterSpacing: "1px", userSelect: "none" }}>···</span>
+      </td>
+    </tr>
+  );
+}
+
+// ─── Product card ─────────────────────────────────────────────────────────────
 
 function ProductCard({
   group,
@@ -272,33 +344,27 @@ function ProductCard({
       aria-label={`View subscribers for ${group.productTitle}`}
       style={{
         border: "1px solid #e4e5e7",
-        borderRadius: "8px",
+        borderRadius: "10px",
         overflow: "hidden",
         cursor: "pointer",
         background: "#fff",
-        transition: "box-shadow 0.15s",
+        transition: "box-shadow 0.15s, transform 0.15s",
       }}
-      onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)")}
-      onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.boxShadow = "none")}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.1)";
+        (e.currentTarget as HTMLDivElement).style.transform = "translateY(-1px)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+        (e.currentTarget as HTMLDivElement).style.transform = "none";
+      }}
     >
       {/* Image area */}
       <div style={{ position: "relative", height: "160px", background: "#f6f6f7" }}>
         {group.imageUrl ? (
           <>
             {imgLoading && (
-              <div style={{
-                position: "absolute", inset: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: "#f6f6f7",
-              }}>
-                <div style={{
-                  width: "28px", height: "28px",
-                  border: "3px solid #e4e5e7",
-                  borderTopColor: "#8c9196",
-                  borderRadius: "50%",
-                  animation: "spin 0.7s linear infinite",
-                }} />
-              </div>
+              <div className="img-shimmer" style={{ position: "absolute", inset: 0 }} />
             )}
             <img
               src={group.imageUrl}
@@ -308,49 +374,89 @@ function ProductCard({
               style={{
                 width: "100%", height: "100%", objectFit: "cover",
                 opacity: imgLoading ? 0 : 1,
-                transition: "opacity 0.2s",
+                transition: "opacity 0.25s",
               }}
             />
           </>
         ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ fontSize: "32px", fontWeight: 700, color: "#babec3" }}>{initials}</span>
+          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#f6f6f7" }}>
+            <span style={{ fontSize: "36px", fontWeight: 700, color: "#c9cccf" }}>{initials}</span>
           </div>
         )}
 
-        {/* Pending count badge overlay */}
+        {/* Pending badge */}
         {group.pending > 0 && (
           <div style={{
             position: "absolute",
-            top: "8px",
-            right: "8px",
+            top: "10px",
+            right: "10px",
             background: "#ffc453",
             color: "#3d2400",
             fontSize: "12px",
             fontWeight: 700,
-            padding: "2px 8px",
-            borderRadius: "12px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+            padding: "3px 9px",
+            borderRadius: "20px",
+            boxShadow: "0 1px 4px rgba(0,0,0,0.18)",
+            display: "flex",
+            alignItems: "center",
+            gap: "3px",
           }}>
+            <span style={{ fontSize: "10px" }}>↑</span>
             {formatCount(group.pending)} waiting
           </div>
         )}
       </div>
 
       {/* Card body */}
-      <div style={{ padding: "12px" }}>
-        <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "6px", lineHeight: 1.3 }}>
+      <div style={{ padding: "12px 14px 14px" }}>
+        <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "6px", lineHeight: 1.4, color: "#202223" }}>
           {group.productTitle}
         </div>
-        <div style={{ display: "flex", gap: "12px", fontSize: "13px", color: "#6d7175" }}>
-          <span>{formatCount(group.total)} total</span>
-          <span>{formatCount(group.pending)} pending</span>
-          <span>{formatCount(group.total - group.pending)} notified</span>
+        <div style={{ display: "flex", gap: "14px", fontSize: "12px", color: "#8c9196" }}>
+          <span><strong style={{ color: "#6d7175" }}>{formatCount(group.total)}</strong> total</span>
+          <span><strong style={{ color: "#6d7175" }}>{formatCount(group.pending)}</strong> pending</span>
+          <span><strong style={{ color: "#6d7175" }}>{formatCount(group.total - group.pending)}</strong> notified</span>
         </div>
       </div>
     </div>
   );
 }
+
+// ─── View toggle icons ────────────────────────────────────────────────────────
+
+function ListIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="3" width="14" height="2" rx="1" fill={active ? "#202223" : "#8c9196"} />
+      <rect x="1" y="7" width="14" height="2" rx="1" fill={active ? "#202223" : "#8c9196"} />
+      <rect x="1" y="11" width="14" height="2" rx="1" fill={active ? "#202223" : "#8c9196"} />
+    </svg>
+  );
+}
+
+function GridIcon({ active }: { active: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="1" width="6" height="6" rx="1" fill={active ? "#202223" : "#8c9196"} />
+      <rect x="9" y="1" width="6" height="6" rx="1" fill={active ? "#202223" : "#8c9196"} />
+      <rect x="1" y="9" width="6" height="6" rx="1" fill={active ? "#202223" : "#8c9196"} />
+      <rect x="9" y="9" width="6" height="6" rx="1" fill={active ? "#202223" : "#8c9196"} />
+    </svg>
+  );
+}
+
+// ─── Shared select style ──────────────────────────────────────────────────────
+
+const selectStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: "6px",
+  border: "1px solid #c9cccf",
+  fontSize: "14px",
+  color: "#202223",
+  background: "#fff",
+  cursor: "pointer",
+  outline: "none",
+};
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -407,7 +513,7 @@ export default function Dashboard() {
         setIsExporting(null);
       }
     },
-    [statusFilter, productFilter]
+    [statusFilter, productFilter],
   );
 
   const listTotalPages = Math.max(1, Math.ceil(total / listPageSize));
@@ -423,9 +529,7 @@ export default function Dashboard() {
       gridPage: String(gridPage),
       gridFilter,
     });
-    for (const [k, v] of Object.entries(params)) {
-      base.set(k, v);
-    }
+    for (const [k, v] of Object.entries(params)) base.set(k, v);
     if (!base.get("status")) base.delete("status");
     if (!base.get("product")) base.delete("product");
     if (base.get("pageSize") === "50") base.delete("pageSize");
@@ -451,11 +555,48 @@ export default function Dashboard() {
     );
   }
 
+  const statCards = [
+    {
+      label: "Total Subscribers",
+      value: formatCount(stats.total),
+      subtitle: "All time",
+      dot: "#8c9196",
+    },
+    {
+      label: "Pending Alerts",
+      value: formatCount(stats.pending),
+      subtitle: "Awaiting restock",
+      dot: "#f59e0b",
+    },
+    {
+      label: "Emails Sent This Month",
+      value: formatCount(stats.sentThisMonth),
+      subtitle: "This month",
+      dot: "#3b82f6",
+    },
+    {
+      label: plan === "FREE" ? "Free Plan" : `${plan.charAt(0) + plan.slice(1).toLowerCase()} Plan`,
+      value: formatCount(emailsRemaining),
+      subtitle: "emails remaining",
+      dot: "#3b82f6",
+    },
+  ];
+
   return (
     <s-page heading="Restock Alerts — Dashboard">
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes shimmer {
+          0% { background-position: -600px 0; }
+          100% { background-position: 600px 0; }
+        }
+        .img-shimmer {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+          background-size: 600px 100%;
+          animation: shimmer 1.4s ease-in-out infinite;
+        }
+        select:focus { box-shadow: 0 0 0 2px #458fff40; border-color: #458fff; }
       `}</style>
       <s-stack direction="block" gap="base">
 
@@ -482,36 +623,113 @@ export default function Dashboard() {
           </s-banner>
         )}
 
-        {/* Stats */}
-        <s-section>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
-            {[
-              { label: "Total Subscribers", value: stats.total },
-              { label: "Pending Alerts", value: stats.pending },
-              { label: "Emails Sent This Month", value: stats.sentThisMonth },
-              { label: `${plan} plan — emails remaining`, value: emailsRemaining },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ border: "1px solid #e4e5e7", borderRadius: "8px", padding: "16px", textAlign: "center" }}>
-                <div style={{ fontSize: "28px", fontWeight: 700 }}>{value}</div>
-                <div style={{ fontSize: "13px", color: "#6d7175", marginTop: "4px" }}>{label}</div>
-              </div>
-            ))}
+        {/* ── Send notifications action bar ── */}
+        {stats.pending > 0 && !planLimitReached && (
+          <div style={{
+            background: "#fff",
+            border: "1px solid #e4e5e7",
+            borderRadius: "10px",
+            padding: "14px 20px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}>
+            <div>
+              <span style={{ fontSize: "14px", fontWeight: 600, color: "#202223" }}>
+                {formatCount(stats.pending)} subscriber{stats.pending !== 1 ? "s" : ""} waiting for restock notifications
+              </span>
+              <span style={{ fontSize: "13px", color: "#6d7175", marginLeft: "8px" }}>
+                · {autoSendEnabled ? "Auto-send is on" : "Auto-send is paused"}
+              </span>
+            </div>
+            <Form method="post">
+              <input type="hidden" name="intent" value="send_now" />
+              <s-button variant="primary" type="submit" {...(isSubmitting ? { loading: true } : {})}>
+                Send notifications now
+              </s-button>
+            </Form>
           </div>
-        </s-section>
+        )}
 
-        {/* Subscribers section */}
-        <s-section heading="Subscribers">
+        {/* ── Stat cards ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "12px" }}>
+          {statCards.map(({ label, value, subtitle, dot }) => (
+            <div key={label} style={{
+              background: "#fff",
+              border: "1px solid #e4e5e7",
+              borderRadius: "10px",
+              padding: "16px 20px 14px",
+              position: "relative",
+            }}>
+              <div style={{
+                position: "absolute", top: "14px", right: "14px",
+                width: "8px", height: "8px", borderRadius: "50%",
+                background: dot,
+              }} />
+              <div style={{ fontSize: "13px", color: "#6d7175", marginBottom: "6px", paddingRight: "20px" }}>{label}</div>
+              <div style={{ fontSize: "30px", fontWeight: 700, lineHeight: 1, color: "#202223", marginBottom: "6px" }}>{value}</div>
+              <div style={{ fontSize: "12px", color: "#8c9196" }}>{subtitle}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Subscribers section ── */}
+        <div style={{ background: "#fff", border: "1px solid #e4e5e7", borderRadius: "10px", padding: "20px 24px" }}>
+
+          {/* Section header row */}
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "4px" }}>
+            <div>
+              <div style={{ fontSize: "16px", fontWeight: 600, color: "#202223" }}>Subscribers</div>
+              <div style={{ fontSize: "13px", color: "#6d7175", marginTop: "3px" }}>
+                People waiting to be notified when products are back in stock.
+              </div>
+            </div>
+
+            {/* View toggle */}
+            <div style={{ display: "flex", border: "1px solid #e4e5e7", borderRadius: "6px", overflow: "hidden", marginTop: "2px" }}>
+              <button
+                onClick={() => navigate({ view: "list", page: "1", gridPage: "1" })}
+                title="List view"
+                style={{
+                  padding: "7px 10px",
+                  border: "none",
+                  borderRight: "1px solid #e4e5e7",
+                  background: view === "list" ? "#f1f2f3" : "#fff",
+                  cursor: "pointer",
+                  display: "flex", alignItems: "center",
+                }}
+              >
+                <ListIcon active={view === "list"} />
+              </button>
+              <button
+                onClick={() => navigate({ view: "grid", page: "1", gridPage: "1" })}
+                title="Grid view"
+                style={{
+                  padding: "7px 10px",
+                  border: "none",
+                  background: view === "grid" ? "#f1f2f3" : "#fff",
+                  cursor: "pointer",
+                  display: "flex", alignItems: "center",
+                }}
+              >
+                <GridIcon active={view === "grid"} />
+              </button>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: "1px", background: "#f1f2f3", margin: "14px 0" }} />
 
           {/* Controls row */}
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
 
-            {/* Status filter */}
+            {/* Status filter — both views */}
             <div>
-              <div style={{ fontSize: "13px", marginBottom: "4px" }}>Status</div>
+              <div style={{ fontSize: "12px", color: "#6d7175", marginBottom: "4px", fontWeight: 500 }}>Status</div>
               <select
                 value={statusFilter}
                 onChange={(e) => navigate({ status: e.target.value, page: "1", gridPage: "1" })}
-                style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #c9cccf" }}
+                style={selectStyle}
               >
                 <option value="">All statuses</option>
                 <option value="PENDING">Pending</option>
@@ -520,14 +738,14 @@ export default function Dashboard() {
               </select>
             </div>
 
-            {/* Product filter — only in list view */}
+            {/* List-only controls */}
             {view === "list" && productGroups.length > 0 && (
               <div>
-                <div style={{ fontSize: "13px", marginBottom: "4px" }}>Product</div>
+                <div style={{ fontSize: "12px", color: "#6d7175", marginBottom: "4px", fontWeight: 500 }}>Product</div>
                 <select
                   value={productFilter}
                   onChange={(e) => navigate({ product: e.target.value, page: "1" })}
-                  style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #c9cccf", maxWidth: "220px" }}
+                  style={{ ...selectStyle, maxWidth: "220px" }}
                 >
                   <option value="">All products</option>
                   {productGroups.map((g) => (
@@ -539,29 +757,27 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Sort — only in list view */}
             {view === "list" && (
               <div>
-                <div style={{ fontSize: "13px", marginBottom: "4px" }}>Sort by date</div>
+                <div style={{ fontSize: "12px", color: "#6d7175", marginBottom: "4px", fontWeight: 500 }}>Sort by date</div>
                 <select
                   value={sort}
                   onChange={(e) => navigate({ sort: e.target.value, page: "1" })}
-                  style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #c9cccf" }}
+                  style={selectStyle}
                 >
-                  <option value="newest">Newest first</option>
-                  <option value="oldest">Oldest first</option>
+                  <option value="subscribedAt_desc">Newest first</option>
+                  <option value="subscribedAt_asc">Oldest first</option>
                 </select>
               </div>
             )}
 
-            {/* Page size — only in list view */}
             {view === "list" && (
               <div>
-                <div style={{ fontSize: "13px", marginBottom: "4px" }}>Per page</div>
+                <div style={{ fontSize: "12px", color: "#6d7175", marginBottom: "4px", fontWeight: 500 }}>Per page</div>
                 <select
                   value={listPageSize}
                   onChange={(e) => navigate({ pageSize: e.target.value, page: "1" })}
-                  style={{ padding: "6px 10px", borderRadius: "4px", border: "1px solid #c9cccf" }}
+                  style={selectStyle}
                 >
                   <option value="25">25</option>
                   <option value="50">50</option>
@@ -573,7 +789,7 @@ export default function Dashboard() {
             {/* Spacer */}
             <div style={{ flex: 1 }} />
 
-            {/* Export buttons */}
+            {/* Export buttons — list only */}
             {view === "list" && (
               <div style={{ display: "flex", gap: "8px" }}>
                 {(["csv", "json"] as const).map((fmt) => (
@@ -581,178 +797,191 @@ export default function Dashboard() {
                     key={fmt}
                     onClick={() => handleExport(fmt)}
                     disabled={isExporting !== null}
-                    style={{ padding: "6px 12px", borderRadius: "4px", border: "1px solid #c9cccf", background: "#fff", color: "#202223", fontSize: "14px", cursor: isExporting ? "wait" : "pointer" }}
+                    style={{
+                      padding: "6px 14px",
+                      borderRadius: "6px",
+                      border: "1px solid #c9cccf",
+                      background: "#fff",
+                      color: "#202223",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      cursor: isExporting ? "wait" : "pointer",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={(e) => { if (!isExporting) (e.currentTarget as HTMLButtonElement).style.background = "#f6f6f7"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}
                   >
                     {isExporting === fmt ? "Exporting…" : `Export ${fmt.toUpperCase()}`}
                   </button>
                 ))}
               </div>
             )}
-
-            {/* View toggle */}
-            <div style={{ display: "flex", border: "1px solid #c9cccf", borderRadius: "4px", overflow: "hidden" }}>
-              {(["list", "grid"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => navigate({ view: v, page: "1", gridPage: "1" })}
-                  title={`${v.charAt(0).toUpperCase() + v.slice(1)} view`}
-                  style={{
-                    padding: "6px 12px",
-                    border: "none",
-                    borderRight: v === "list" ? "1px solid #c9cccf" : "none",
-                    background: view === v ? "#f1f2f3" : "#fff",
-                    color: view === v ? "#202223" : "#6d7175",
-                    fontSize: "16px",
-                    cursor: "pointer",
-                    fontWeight: view === v ? 700 : 400,
-                  }}
-                >
-                  {v === "list" ? "≡" : "⊞"}
-                </button>
-              ))}
-            </div>
           </div>
 
-          {/* Content area — overlay while navigating */}
+          {/* Content area with navigation overlay */}
           <div style={{ position: "relative" }}>
             {isNavigating && (
               <div style={{
                 position: "absolute", inset: 0, zIndex: 10,
-                background: "rgba(255,255,255,0.7)",
+                background: "rgba(255,255,255,0.75)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 borderRadius: "8px",
                 animation: "fadeIn 0.2s ease 0.15s both",
               }}>
                 <div style={{
-                  width: "36px", height: "36px",
-                  border: "4px solid #e4e5e7",
-                  borderTopColor: "#8c9196",
+                  width: "32px", height: "32px",
+                  border: "3px solid #e4e5e7",
+                  borderTopColor: "#458fff",
                   borderRadius: "50%",
                   animation: "spin 0.7s linear infinite",
                 }} />
               </div>
             )}
 
-          {/* Grid view */}
-          {view === "grid" && (
-            gridTotal === 0 ? (
-              <div style={{ padding: "40px", textAlign: "center", color: "#6d7175" }}>
-                {gridFilter === "pending"
-                  ? <>No products with pending alerts. <button onClick={() => navigate({ gridFilter: "all", gridPage: "1" })} style={{ background: "none", border: "none", color: "#2c6ecb", cursor: "pointer", padding: 0, fontSize: "14px", textDecoration: "underline" }}>Show all products</button></>
-                  : "No subscribers yet. Product cards will appear here once shoppers sign up."
-                }
-              </div>
-            ) : (
+            {/* ── Grid view ── */}
+            {view === "grid" && (
+              gridTotal === 0 ? (
+                <div style={{ padding: "48px 24px", textAlign: "center", color: "#6d7175" }}>
+                  {gridFilter === "pending" ? (
+                    <>
+                      No products with pending alerts.{" "}
+                      <button
+                        onClick={() => navigate({ gridFilter: "all", gridPage: "1" })}
+                        style={{ background: "none", border: "none", color: "#458fff", cursor: "pointer", padding: 0, fontSize: "14px", textDecoration: "underline" }}
+                      >
+                        Show all products
+                      </button>
+                    </>
+                  ) : (
+                    "No subscribers yet. Product cards will appear here once shoppers sign up for restock alerts."
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Grid header */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                    <span style={{ fontSize: "13px", color: "#6d7175", fontWeight: 500 }}>
+                      {gridFilter === "pending"
+                        ? `${gridTotal} product${gridTotal === 1 ? "" : "s"} waiting for restock`
+                        : `${gridTotal} product${gridTotal === 1 ? "" : "s"} total`}
+                    </span>
+                    <button
+                      onClick={() => navigate({ gridFilter: gridFilter === "pending" ? "all" : "pending", gridPage: "1" })}
+                      style={{ background: "none", border: "none", color: "#458fff", cursor: "pointer", fontSize: "13px", padding: 0, fontWeight: 500 }}
+                    >
+                      {gridFilter === "pending" ? "Show all products →" : "Show pending only →"}
+                    </button>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: "14px" }}>
+                    {pagedProductGroups.map((g) => (
+                      <ProductCard
+                        key={g.productId}
+                        group={g}
+                        onClick={() => navigate({ view: "list", product: g.productId, page: "1" })}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Grid pagination */}
+                  {gridTotalPages > 1 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "20px", paddingTop: "14px", borderTop: "1px solid #f1f2f3" }}>
+                      <span style={{ fontSize: "13px", color: "#6d7175" }}>
+                        Page {gridPage} of {gridTotalPages} — {gridTotal} products
+                      </span>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <PaginationButton disabled={gridPage <= 1} href={buildUrl({ gridPage: String(gridPage - 1) })}>Previous</PaginationButton>
+                        <PaginationButton disabled={gridPage >= gridTotalPages} href={buildUrl({ gridPage: String(gridPage + 1) })}>Next</PaginationButton>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )
+            )}
+
+            {/* Hidden preloads — forces browser to download grid images while in list view */}
+            {view === "list" && pagedProductGroups.map((g) =>
+              g.imageUrl ? <img key={g.productId} src={g.imageUrl} alt="" aria-hidden="true" style={{ display: "none" }} /> : null
+            )}
+
+            {/* ── List view ── */}
+            {view === "list" && (
               <>
-                {/* Pending / All toggle */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <s-text>
-                    {gridFilter === "pending"
-                      ? `${gridTotal} product${gridTotal === 1 ? "" : "s"} waiting for restock`
-                      : `${gridTotal} product${gridTotal === 1 ? "" : "s"} total`
-                    }
-                  </s-text>
-                  <button
-                    onClick={() => navigate({ gridFilter: gridFilter === "pending" ? "all" : "pending", gridPage: "1" })}
-                    style={{ background: "none", border: "none", color: "#2c6ecb", cursor: "pointer", fontSize: "13px", textDecoration: "underline", padding: 0 }}
-                  >
-                    {gridFilter === "pending" ? "Show all products" : "Show pending only"}
-                  </button>
+                <div style={{ overflowX: "auto", borderRadius: "8px", border: "1px solid #e4e5e7" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
+                    <thead>
+                      <tr style={{ background: "#f9fafb", borderBottom: "1px solid #e4e5e7" }}>
+                        <th style={{ padding: "10px 16px", fontWeight: 600, color: "#6d7175", fontSize: "12px", textAlign: "left", textTransform: "uppercase", letterSpacing: "0.04em" }}>Email</th>
+                        <th style={{ padding: "10px 16px", fontWeight: 600, color: "#6d7175", fontSize: "12px", textAlign: "left", textTransform: "uppercase", letterSpacing: "0.04em" }}>Product</th>
+                        <th style={{ padding: "10px 16px", fontWeight: 600, color: "#6d7175", fontSize: "12px", textAlign: "left", textTransform: "uppercase", letterSpacing: "0.04em" }}>Status</th>
+                        <th style={{ padding: "10px 16px", fontWeight: 600, color: "#6d7175", fontSize: "12px", textAlign: "left", textTransform: "uppercase", letterSpacing: "0.04em" }}>Date Subscribed</th>
+                        <th style={{ padding: "10px 16px", width: "48px" }} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subscribers.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ padding: "40px 16px", textAlign: "center", color: "#8c9196", fontSize: "14px" }}>
+                            No subscribers yet. Once shoppers sign up for restock alerts, they&apos;ll appear here.
+                          </td>
+                        </tr>
+                      ) : (
+                        subscribers.map((sub) => <SubscriberRow key={sub.id} sub={sub} />)
+                      )}
+                    </tbody>
+                  </table>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: "16px" }}>
-                  {pagedProductGroups.map((g) => (
-                    <ProductCard
-                      key={g.productId}
-                      group={g}
-                      onClick={() => navigate({ view: "list", product: g.productId, page: "1" })}
-                    />
-                  ))}
-                </div>
-
-                {/* Grid pagination */}
-                {gridTotalPages > 1 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "16px" }}>
-                    <s-text>Page {gridPage} of {gridTotalPages} ({gridTotal} products)</s-text>
+                {/* List pagination */}
+                {total > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px" }}>
+                    <span style={{ fontSize: "13px", color: "#6d7175" }}>
+                      Page {page} of {listTotalPages} — {total} subscriber{total !== 1 ? "s" : ""}
+                    </span>
                     <div style={{ display: "flex", gap: "8px" }}>
-                      {gridPage > 1 ? (
-                        <s-link href={buildUrl({ gridPage: String(gridPage - 1) })}>
-                          <s-button variant="tertiary">Previous</s-button>
-                        </s-link>
-                      ) : (
-                        <s-button variant="tertiary" disabled>Previous</s-button>
-                      )}
-                      {gridPage < gridTotalPages ? (
-                        <s-link href={buildUrl({ gridPage: String(gridPage + 1) })}>
-                          <s-button variant="tertiary">Next</s-button>
-                        </s-link>
-                      ) : (
-                        <s-button variant="tertiary" disabled>Next</s-button>
-                      )}
+                      <PaginationButton disabled={page <= 1} href={buildUrl({ page: String(page - 1) })}>Previous</PaginationButton>
+                      <PaginationButton disabled={page >= listTotalPages} href={buildUrl({ page: String(page + 1) })}>Next</PaginationButton>
                     </div>
                   </div>
                 )}
               </>
-            )
-          )}
+            )}
 
-          {/* List view */}
-          {view === "list" && (
-            <>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid #e4e5e7", textAlign: "left" }}>
-                      <th style={{ padding: "10px 12px", fontWeight: 600 }}>Email</th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600 }}>Product</th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600 }}>Status</th>
-                      <th style={{ padding: "10px 12px", fontWeight: 600 }}>Date Subscribed</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {subscribers.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} style={{ padding: "24px 12px", textAlign: "center", color: "#6d7175" }}>
-                          No subscribers yet. Once shoppers sign up for restock alerts, they&apos;ll appear here.
-                        </td>
-                      </tr>
-                    ) : (
-                      subscribers.map((sub) => <SubscriberRow key={sub.id} sub={sub} />)
-                    )}
-                  </tbody>
-                </table>
-              </div>
+          </div>{/* end overlay wrapper */}
+        </div>{/* end subscribers section */}
 
-              {/* Pagination */}
-              {total > 0 && (
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "16px" }}>
-                  <s-text>Page {page} of {listTotalPages} ({total} subscribers)</s-text>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    {page > 1 ? (
-                      <s-link href={buildUrl({ page: String(page - 1) })}>
-                        <s-button variant="tertiary">Previous</s-button>
-                      </s-link>
-                    ) : (
-                      <s-button variant="tertiary" disabled>Previous</s-button>
-                    )}
-                    {page < listTotalPages ? (
-                      <s-link href={buildUrl({ page: String(page + 1) })}>
-                        <s-button variant="tertiary">Next</s-button>
-                      </s-link>
-                    ) : (
-                      <s-button variant="tertiary" disabled>Next</s-button>
-                    )}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-
-          </div>{/* end navigating overlay wrapper */}
-
-        </s-section>
       </s-stack>
     </s-page>
+  );
+}
+
+// ─── Pagination button ────────────────────────────────────────────────────────
+
+function PaginationButton({ children, disabled, href }: { children: React.ReactNode; disabled: boolean; href: string }) {
+  return disabled ? (
+    <button
+      disabled
+      style={{
+        padding: "6px 14px", borderRadius: "6px",
+        border: "1px solid #e4e5e7", background: "#f9fafb",
+        color: "#c9cccf", fontSize: "13px", fontWeight: 500, cursor: "not-allowed",
+      }}
+    >
+      {children}
+    </button>
+  ) : (
+    <a
+      href={href}
+      style={{
+        padding: "6px 14px", borderRadius: "6px",
+        border: "1px solid #c9cccf", background: "#fff",
+        color: "#202223", fontSize: "13px", fontWeight: 500,
+        cursor: "pointer", textDecoration: "none", display: "inline-block",
+        transition: "background 0.15s",
+      }}
+    >
+      {children}
+    </a>
   );
 }
 
