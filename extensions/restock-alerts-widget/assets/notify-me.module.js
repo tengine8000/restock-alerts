@@ -22,6 +22,8 @@ export function initForm(container) {
 
   var variantId = container.dataset.variantId;
   var productId = container.dataset.productId;
+  var productTitle = container.dataset.productTitle || '';
+  var variantTitle = container.dataset.variantTitle || '';
   var shop = container.dataset.shop;
   var appUrl = container.dataset.appUrl;
 
@@ -63,6 +65,8 @@ export function initForm(container) {
         email: email,
         variantId: variantId,
         productId: productId,
+        productTitle: productTitle,
+        variantTitle: variantTitle,
         shop: shop,
       }),
     })

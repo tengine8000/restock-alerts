@@ -34,6 +34,8 @@
   class="bis-notify-me"
   data-variant-id="{{ product.selected_or_first_available_variant.id }}"
   data-product-id="{{ product.id }}"
+  data-product-title="{{ product.title | escape }}"
+  data-variant-title="{{ product.selected_or_first_available_variant.title | escape }}"
   data-shop="{{ shop.permanent_domain }}"
   data-app-url="https://{{ shop.permanent_domain }}/apps/restock-alerts"
 >

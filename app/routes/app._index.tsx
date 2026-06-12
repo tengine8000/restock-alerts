@@ -157,11 +157,20 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function SubscriberRow({ sub }: { sub: Subscriber }) {
+  const productLabel = sub.productTitle ?? `Product #${sub.productId}`;
+  const variantLabel = sub.variantTitle && sub.variantTitle !== "Default Title"
+    ? sub.variantTitle
+    : null;
+
   return (
     <tr style={{ borderBottom: "1px solid #e4e5e7" }}>
       <td style={{ padding: "10px 12px" }}>{sub.email}</td>
-      <td style={{ padding: "10px 12px", fontFamily: "monospace" }}>{sub.productId}</td>
-      <td style={{ padding: "10px 12px", fontFamily: "monospace" }}>{sub.variantId}</td>
+      <td style={{ padding: "10px 12px" }}>
+        <div>{productLabel}</div>
+        {variantLabel && (
+          <div style={{ fontSize: "12px", color: "#6d7175", marginTop: "2px" }}>{variantLabel}</div>
+        )}
+      </td>
       <td style={{ padding: "10px 12px" }}>
         <StatusBadge status={sub.status} />
       </td>
@@ -404,8 +413,7 @@ export default function Dashboard() {
                   }}
                 >
                   <th style={{ padding: "10px 12px", fontWeight: 600 }}>Email</th>
-                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Product ID</th>
-                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Variant ID</th>
+                  <th style={{ padding: "10px 12px", fontWeight: 600 }}>Product</th>
                   <th style={{ padding: "10px 12px", fontWeight: 600 }}>Status</th>
                   <th style={{ padding: "10px 12px", fontWeight: 600 }}>Date Subscribed</th>
                 </tr>

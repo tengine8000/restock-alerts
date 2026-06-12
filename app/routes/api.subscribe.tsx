@@ -81,7 +81,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ error: "Invalid request body." }, 400);
   }
 
-  const { variantId, productId, email, shop } = body as Record<string, unknown>;
+  const { variantId, productId, productTitle, variantTitle, email, shop } = body as Record<string, unknown>;
 
   if (!shop || typeof shop !== "string" || !MYSHOPIFY_DOMAIN_REGEX.test(shop)) {
     return json({ error: "Missing or invalid shop." }, 400);
@@ -103,7 +103,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return json({ error: "Invalid email address." }, 400);
   }
 
-  await SubscriberService.create({ shop, productId, variantId, email });
+  await SubscriberService.create({
+    shop,
+    productId,
+    variantId,
+    productTitle: typeof productTitle === "string" ? productTitle.slice(0, 255) : undefined,
+    variantTitle: typeof variantTitle === "string" ? variantTitle.slice(0, 255) : undefined,
+    email,
+  });
 
   return json({ success: true });
 };

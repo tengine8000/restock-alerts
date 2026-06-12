@@ -10,6 +10,8 @@ export function makeSubscriber(overrides: Partial<Subscriber> = {}): Subscriber 
     shop: "test-shop.myshopify.com",
     productId: "gid://shopify/Product/123",
     variantId: "gid://shopify/ProductVariant/456",
+    productTitle: null,
+    variantTitle: null,
     email: "test@example.com",
     status: "PENDING",
     subscribedAt: new Date("2024-01-01T00:00:00Z"),

@@ -7,6 +7,8 @@ export interface CreateSubscriberInput {
   shop: string;
   productId: string;
   variantId: string;
+  productTitle?: string;
+  variantTitle?: string;
   email: string;
 }
 
@@ -32,7 +34,7 @@ export const SubscriberService = {
    * Otherwise insert new subscriber.
    */
   async create(input: CreateSubscriberInput): Promise<Subscriber> {
-    const { shop, productId, variantId, email } = input;
+    const { shop, productId, variantId, productTitle, variantTitle, email } = input;
 
     return prisma.subscriber.upsert({
       where: { shop_variantId_email: { shop, variantId, email } },
@@ -40,6 +42,8 @@ export const SubscriberService = {
         shop,
         productId,
         variantId,
+        productTitle: productTitle ?? null,
+        variantTitle: variantTitle ?? null,
         email,
         status: "PENDING",
       },
@@ -47,6 +51,8 @@ export const SubscriberService = {
         status: "PENDING",
         notifiedAt: null,
         subscribedAt: new Date(),
+        ...(productTitle ? { productTitle } : {}),
+        ...(variantTitle ? { variantTitle } : {}),
       },
     });
   },
@@ -141,7 +147,7 @@ export const SubscriberService = {
   }): AsyncGenerator<string> {
     const { shop, productId, status } = opts;
 
-    yield "email,product_id,variant_id,subscribed_at,status\n";
+    yield "email,product_title,variant_title,product_id,variant_id,subscribed_at,status\n";
 
     const subscribers = await prisma.subscriber.findMany({
       where: {
@@ -155,6 +161,8 @@ export const SubscriberService = {
     for (const sub of subscribers) {
       const row = [
         escapeCsvField(sub.email),
+        escapeCsvField(sub.productTitle ?? ""),
+        escapeCsvField(sub.variantTitle ?? ""),
         escapeCsvField(sub.productId),
         escapeCsvField(sub.variantId),
         sub.subscribedAt.toISOString(),

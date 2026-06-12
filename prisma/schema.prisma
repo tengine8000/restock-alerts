@@ -37,6 +37,8 @@ model Subscriber {
   shop         String
   productId    String
   variantId    String
+  productTitle String?
+  variantTitle String?
   email        String
   status       String    @default("PENDING")
   subscribedAt DateTime  @default(now())
