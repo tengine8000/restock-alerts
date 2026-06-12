@@ -41,7 +41,7 @@ api_version = "2026-07"
 
 [app_proxy]
 url = "https://example.com/api"
-subpath = "back-in-stock"
+subpath = "restock-alerts"
 prefix = "apps"
 
 [auth]

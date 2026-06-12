@@ -2,6 +2,6 @@ api_version = "2025-10"
 
 [[extensions]]
 type = "theme"
-name = "Back in Stock — Notify Me"
-handle = "back-in-stock-notify-me"
+name = "Restock Alerts — Notify Me"
+handle = "restock-alerts-notify-me"
 uid = "c28dc522-ba0d-0f89-7715-73b182c358a193400d3b"

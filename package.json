@@ -1,5 +1,5 @@
 {
-  "name": "back-in-stock-alert-app",
+  "name": "restock-alerts-app",
   "private": true,
   "scripts": {
     "build": "react-router build",
