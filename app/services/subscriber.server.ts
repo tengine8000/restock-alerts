@@ -180,6 +180,44 @@ function escapeCsvField(value: string): string {
   return value;
 }
 
+export interface ProductGroup {
+  productId: string;
+  productTitle: string;
+  total: number;
+  pending: number;
+}
+
+export async function getProductGroups(shop: string): Promise<ProductGroup[]> {
+  const [allGroups, pendingGroups, titleRows] = await Promise.all([
+    prisma.subscriber.groupBy({
+      by: ["productId"],
+      where: { shop },
+      _count: { _all: true },
+      orderBy: { _count: { productId: "desc" } },
+    }),
+    prisma.subscriber.groupBy({
+      by: ["productId"],
+      where: { shop, status: "PENDING" },
+      _count: { _all: true },
+    }),
+    prisma.subscriber.findMany({
+      where: { shop },
+      select: { productId: true, productTitle: true },
+      distinct: ["productId"],
+    }),
+  ]);
+
+  const pendingMap = new Map(pendingGroups.map((g) => [g.productId, g._count._all]));
+  const titleMap = new Map(titleRows.map((r) => [r.productId, r.productTitle]));
+
+  return allGroups.map((g) => ({
+    productId: g.productId,
+    productTitle: titleMap.get(g.productId) ?? `Product #${g.productId}`,
+    total: g._count._all,
+    pending: pendingMap.get(g.productId) ?? 0,
+  }));
+}
+
 export interface SubscriberStats {
   total: number;
   pending: number;

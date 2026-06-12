@@ -38,9 +38,7 @@ export default function App() {
     <AppProvider embedded apiKey={apiKey}>
       <s-app-nav>
         <s-link href="/app">
-          Dashboard{pendingCount > 0 && (
-            <s-badge tone="warning">{formatCount(pendingCount)}</s-badge>
-          )}
+          {pendingCount > 0 ? `Dashboard (${formatCount(pendingCount)})` : "Dashboard"}
         </s-link>
         <s-link href="/app/settings">Settings</s-link>
         <s-link href="/app/preview">Test Email</s-link>
