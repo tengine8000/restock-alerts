@@ -214,7 +214,7 @@ export const NotificationService = {
       status: "PENDING",
     });
 
-    const fromName = settings?.emailFromName ?? "Back in Stock";
+    const fromName = settings?.emailFromName ?? "Restock Alerts";
     const subject =
       settings?.emailSubject ?? "{{product_title}} is back in stock!";
     const template =
@@ -286,8 +286,8 @@ export const NotificationService = {
     });
 
     const provider = getEmailProvider(settings);
-    const fromName = settings?.emailFromName ?? "Back in Stock";
-    const subject = "Test: Back in Stock notification";
+    const fromName = settings?.emailFromName ?? "Restock Alerts";
+    const subject = "Test: Restock Alerts notification";
     const productTitle = "Test Product";
     const productUrl = "https://your-store.myshopify.com/products/test";
     const template =

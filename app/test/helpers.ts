@@ -25,7 +25,7 @@ export function makeShopSettings(
     shop: "test-shop.myshopify.com",
     plan: "FREE",
     autoSendEnabled: true,
-    emailFromName: "Back in Stock",
+    emailFromName: "Restock Alerts",
     emailSubject: "{{product_title}} is back in stock!",
     emailBodyHtml:
       '<p>Good news! <a href="{{product_url}}">{{product_title}}</a> is back in stock.</p>',

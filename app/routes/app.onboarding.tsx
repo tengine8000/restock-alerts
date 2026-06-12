@@ -198,7 +198,7 @@ function Step2({ shop }: { shop: string }) {
   const steps = [
     "Go to your Shopify theme editor",
     "Navigate to a product page template",
-    'Click "Add block" and search for "Back in Stock — Notify Me"',
+    'Click "Add block" and search for "Restock Alerts"',
     "Save your theme",
   ];
 

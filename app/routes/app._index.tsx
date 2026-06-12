@@ -233,7 +233,7 @@ export default function Dashboard() {
   }
 
   return (
-    <s-page heading="Back in Stock — Dashboard">
+    <s-page heading="Restock Alerts — Dashboard">
       <s-stack direction="block" gap="base">
 
         {/* Auto-send paused banner */}
