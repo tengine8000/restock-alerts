@@ -52,6 +52,8 @@ export function initForm(container) {
 
     isSubmitting = true;
     submitBtn.disabled = true;
+    submitBtn.setAttribute('aria-busy', 'true');
+    submitBtn.setAttribute('aria-label', 'Submitting, please wait');
     var originalText = submitBtn.textContent;
     submitBtn.textContent = '...';
 
@@ -100,6 +102,8 @@ export function initForm(container) {
         if (!submitted) {
           isSubmitting = false;
           submitBtn.disabled = false;
+          submitBtn.removeAttribute('aria-busy');
+          submitBtn.removeAttribute('aria-label');
           submitBtn.textContent = originalText;
         }
       });

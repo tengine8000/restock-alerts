@@ -42,6 +42,7 @@
   <form
     class="bis-form"
     novalidate
+    aria-label="Notify me when back in stock"
     style="display:flex; flex-direction:{% if layout == 'inline' %}row{% else %}column{% endif %}; gap:{{ gap }}px; align-items:{% if layout == 'inline' %}stretch{% else %}flex-start{% endif %};"
   >
     <div class="bis-field" style="{% if layout == 'inline' %}flex:1 1 auto;{% else %}width:100%;{% endif %}">
@@ -50,6 +51,8 @@
         name="email"
         class="bis-email-input"
         placeholder="{{ inp_ph }}"
+        aria-label="Email address"
+        aria-required="true"
         required
         autocomplete="email"
         style="
@@ -88,12 +91,14 @@
 
   <div
     class="bis-success"
+    role="status"
     style="display:none; margin-top:8px; color:{{ success_col }};"
   >
     {{ success_msg }}
   </div>
   <div
     class="bis-error"
+    role="alert"
     style="display:none; margin-top:8px; color:{{ error_col }};"
   ></div>
 </div>
