@@ -9,7 +9,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const url = new URL(request.url);
   const productId = url.searchParams.get("productId") ?? undefined;
-  const status = url.searchParams.get("status") || undefined;
+  const VALID_STATUSES = ["PENDING", "NOTIFIED", "UNSUBSCRIBED"];
+  const rawStatus = url.searchParams.get("status") ?? "";
+  const status = VALID_STATUSES.includes(rawStatus) ? rawStatus : undefined;
   const format = url.searchParams.get("format") === "json" ? "json" : "csv";
 
   if (format === "json") {

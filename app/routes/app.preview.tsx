@@ -41,7 +41,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     await sendTestEmail(shop, testEmail);
     return { success: true, error: null, sentTo: testEmail };
   } catch (err) {
-    return { success: false, error: String(err), sentTo: null };
+    console.error("[preview] sendTestEmail failed:", err);
+    return { success: false, error: "Failed to send email. Check that your Resend API key is set and your sending domain is verified.", sentTo: null };
   }
 };
 

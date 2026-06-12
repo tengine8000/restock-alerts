@@ -87,14 +87,24 @@ async function fetchProductInfo(
   }
 }
 
+function isSafeUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || u.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function buildEmailHtml(
   template: string,
   productTitle: string,
   productUrl: string
 ): string {
+  const safeUrl = isSafeUrl(productUrl) ? productUrl : "#";
   return template
     .replace(/\{\{product_title\}\}/g, escapeHtml(productTitle))
-    .replace(/\{\{product_url\}\}/g, productUrl);
+    .replace(/\{\{product_url\}\}/g, escapeHtml(safeUrl));
 }
 
 /** Returns ShopSettings for a shop, or null if not found. */

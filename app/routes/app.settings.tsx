@@ -34,6 +34,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!emailFromName.trim()) {
     return { error: "Email from name is required.", success: false };
   }
+  if (emailFromName.trim().length > 255) {
+    return { error: "From name is too long (max 255 characters).", success: false };
+  }
+  if (emailSubject.trim().length > 500) {
+    return { error: "Subject line is too long (max 500 characters).", success: false };
+  }
+  if (emailBodyHtml.length > 50_000) {
+    return { error: "Email body is too long (max 50,000 characters).", success: false };
+  }
 
   await saveShopSettings(shop, {
     autoSendEnabled,
