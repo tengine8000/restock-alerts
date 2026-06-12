@@ -2,7 +2,7 @@
 
 client_id = "076d69bb2d0f25259920b90a01a19db2"
 name = "Restock Alerts - MerchaLabs"
-application_url = "https://example.com"
+application_url = "https://merchalabs.com"
 embedded = true
 
 [access_scopes]
@@ -33,12 +33,12 @@ api_version = "2026-07"
   shop_deletion_url = "/webhooks/shop/redact"
 
 [app_proxy]
-url = "https://example.com/api"
+url = "https://merchalabs.com/restock-alerts/api"
 subpath = "restock-alerts"
 prefix = "apps"
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://merchalabs.com/api/auth" ]
 
 [build]
 automatically_update_urls_on_dev = true
