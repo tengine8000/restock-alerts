@@ -41,7 +41,6 @@ export default function App() {
           {pendingCount > 0 ? `Dashboard (${formatCount(pendingCount)})` : "Dashboard"}
         </s-link>
         <s-link href="/app/settings">Settings</s-link>
-        <s-link href="/app/preview">Test Email</s-link>
         <s-link href="/app/billing">Plans</s-link>
       </s-app-nav>
       <Outlet />

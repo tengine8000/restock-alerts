@@ -116,28 +116,40 @@ export default function BillingPage() {
   }, [actionData]);
 
   return (
-    <s-page heading="Choose a plan">
+    <s-page heading="Plans & Billing">
       <s-stack direction="block" gap="base">
+
         {actionData?.error && (
           <s-banner tone="critical">
-            <s-text>Something went wrong: {actionData.error}</s-text>
+            <s-text>{actionData.error}</s-text>
           </s-banner>
         )}
 
-        <s-section>
-          <s-text>
-            All paid plans include a 7-day free trial. Cancel any time from your Shopify admin.
-          </s-text>
-        </s-section>
+        {/* ── Intro card ── */}
+        <div style={{
+          background: "#fff", border: "1px solid #e4e5e7",
+          borderRadius: "10px", padding: "20px 24px",
+          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px",
+        }}>
+          <div>
+            <div style={{ fontSize: "16px", fontWeight: 600, color: "#202223", marginBottom: "4px" }}>
+              Choose the right plan for your store
+            </div>
+            <div style={{ fontSize: "13px", color: "#6d7175" }}>
+              All paid plans include a 7-day free trial. Cancel any time — no questions asked.
+            </div>
+          </div>
+          <div style={{
+            background: "#f0faf6", border: "1px solid #b5e3cc",
+            borderRadius: "8px", padding: "8px 14px",
+            fontSize: "13px", fontWeight: 600, color: "#008060", whiteSpace: "nowrap",
+          }}>
+            7-day free trial
+          </div>
+        </div>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "16px",
-            alignItems: "start",
-          }}
-        >
+        {/* ── Plan cards ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px" }}>
           {PLANS.map((plan) => {
             const isCurrent = currentPlan === plan.id;
             const isUpgrade =
@@ -151,42 +163,41 @@ export default function BillingPage() {
               <div
                 key={plan.id}
                 style={{
-                  border: isCurrent ? "2px solid #008060" : "1px solid #e4e5e7",
-                  borderRadius: "8px",
-                  padding: "24px",
                   background: "#fff",
+                  border: isCurrent ? "2px solid #008060" : "1px solid #e4e5e7",
+                  borderRadius: "10px",
+                  padding: "24px",
                   position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
                 }}
               >
                 {isCurrent && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "-12px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      background: "#008060",
-                      color: "#fff",
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      padding: "2px 12px",
-                      borderRadius: "20px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
+                  <div style={{
+                    position: "absolute", top: "-12px", left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "#008060", color: "#fff",
+                    fontSize: "11px", fontWeight: 700,
+                    padding: "3px 12px", borderRadius: "20px",
+                    whiteSpace: "nowrap", letterSpacing: "0.04em", textTransform: "uppercase",
+                  }}>
                     Current plan
                   </div>
                 )}
 
-                <div style={{ marginBottom: "16px" }}>
-                  <div style={{ fontSize: "18px", fontWeight: 700 }}>{plan.name}</div>
-                  <div style={{ marginTop: "8px" }}>
+                {/* Plan name + price */}
+                <div style={{ marginBottom: "20px" }}>
+                  <div style={{ fontSize: "16px", fontWeight: 700, color: "#202223", marginBottom: "10px" }}>
+                    {plan.name}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
                     {plan.price === 0 ? (
-                      <span style={{ fontSize: "28px", fontWeight: 700 }}>Free</span>
+                      <span style={{ fontSize: "32px", fontWeight: 800, color: "#202223" }}>Free</span>
                     ) : (
                       <>
-                        <span style={{ fontSize: "28px", fontWeight: 700 }}>${plan.price}</span>
-                        <span style={{ fontSize: "14px", color: "#6d7175" }}> / month</span>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#6d7175", marginTop: "6px", alignSelf: "flex-start" }}>$</span>
+                        <span style={{ fontSize: "32px", fontWeight: 800, color: "#202223" }}>{plan.price}</span>
+                        <span style={{ fontSize: "13px", color: "#6d7175" }}>/mo</span>
                       </>
                     )}
                   </div>
@@ -195,24 +206,29 @@ export default function BillingPage() {
                   </div>
                 </div>
 
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px 0" }}>
+                {/* Divider */}
+                <div style={{ height: "1px", background: "#f1f2f3", marginBottom: "16px" }} />
+
+                {/* Features */}
+                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", flex: 1 }}>
                   {plan.features.map((f) => (
-                    <li key={f} style={{ fontSize: "14px", padding: "4px 0", display: "flex", gap: "8px" }}>
-                      <span style={{ color: "#008060" }}>✓</span> {f}
+                    <li key={f} style={{ fontSize: "13px", color: "#202223", padding: "5px 0", display: "flex", gap: "8px", alignItems: "flex-start" }}>
+                      <span style={{
+                        color: "#008060", fontWeight: 700, fontSize: "12px",
+                        marginTop: "1px", flexShrink: 0,
+                      }}>✓</span>
+                      {f}
                     </li>
                   ))}
                 </ul>
 
+                {/* CTA */}
                 {isCurrent ? (
-                  <s-button variant="secondary" disabled>
-                    Current plan
-                  </s-button>
+                  <s-button variant="secondary" disabled>Current plan</s-button>
                 ) : plan.price === 0 ? (
                   isDowngrade ? (
                     <Form method="post" action="/app/billing/downgrade">
-                      <s-button variant="secondary" type="submit">
-                        Downgrade to Free
-                      </s-button>
+                      <s-button variant="secondary" type="submit">Downgrade to Free</s-button>
                     </Form>
                   ) : null
                 ) : (
@@ -223,7 +239,7 @@ export default function BillingPage() {
                       type="submit"
                       {...(isSubmitting && submittingPlanId === plan.id ? { loading: true } : {})}
                     >
-                      {isUpgrade ? "Upgrade" : "Select plan"}
+                      {isUpgrade ? `Upgrade to ${plan.name}` : `Select ${plan.name}`}
                     </s-button>
                   </Form>
                 )}
@@ -231,6 +247,7 @@ export default function BillingPage() {
             );
           })}
         </div>
+
       </s-stack>
     </s-page>
   );
