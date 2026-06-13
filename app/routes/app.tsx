@@ -1,5 +1,6 @@
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Outlet, useLoaderData, useRouteError } from "react-router";
+import { useEffect } from "react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { AppProvider } from "@shopify/shopify-app-react-router/react";
 
@@ -21,7 +22,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const stats = await getSubscriberStats(session.shop);
 
   // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "", pendingCount: stats.pending };
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    pendingCount: stats.pending,
+    shop: session.shop,
+    tawkPropertyId: process.env.TAWK_PROPERTY_ID || "",
+    tawkWidgetId: process.env.TAWK_WIDGET_ID || "default",
+  };
 };
 
 function formatCount(n: number): string {
@@ -31,8 +38,39 @@ function formatCount(n: number): string {
   return String(n);
 }
 
+// ─── Tawk.to chat widget ───────────────────────────────────────────────────────
+
+function TawkChat({ propertyId, widgetId, shop }: { propertyId: string; widgetId: string; shop: string }) {
+  useEffect(() => {
+    if (!propertyId) return;
+
+    const w = window as any;
+    w.Tawk_API = w.Tawk_API || {};
+    w.Tawk_LoadStart = new Date();
+
+    // Pre-fill merchant shop domain so support has immediate context
+    w.Tawk_API.onLoad = function () {
+      w.Tawk_API.setAttributes({ shop }, function () {});
+    };
+
+    const script = document.createElement("script");
+    const first = document.getElementsByTagName("script")[0];
+    script.async = true;
+    script.src = `https://embed.tawk.to/${propertyId}/${widgetId}`;
+    script.charset = "UTF-8";
+    script.setAttribute("crossorigin", "*");
+    first.parentNode?.insertBefore(script, first);
+
+    return () => { script.remove(); };
+  }, [propertyId, widgetId, shop]);
+
+  return null;
+}
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+
 export default function App() {
-  const { apiKey, pendingCount } = useLoaderData<typeof loader>();
+  const { apiKey, pendingCount, shop, tawkPropertyId, tawkWidgetId } = useLoaderData<typeof loader>();
 
   return (
     <AppProvider embedded apiKey={apiKey}>
@@ -44,6 +82,7 @@ export default function App() {
         <s-link href="/app/billing">Plans</s-link>
       </s-app-nav>
       <Outlet />
+      <TawkChat propertyId={tawkPropertyId} widgetId={tawkWidgetId} shop={shop} />
     </AppProvider>
   );
 }
