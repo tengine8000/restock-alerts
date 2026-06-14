@@ -4,8 +4,6 @@ client_id = "076d69bb2d0f25259920b90a01a19db2"
 name = "Restock Alerts - MerchaLabs"
 application_url = "https://merchalabs.com"
 embedded = true
-privacy_policy_url = "https://merchalabs.com/privacy"
-support_url = "https://merchalabs.com/support"
 
 [access_scopes]
 scopes = "read_products,read_inventory"
