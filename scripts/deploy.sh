@@ -13,7 +13,9 @@ echo "Installing dependencies..."
 npm ci --omit=dev
 
 if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
+  set -a
+  source .env
+  set +a
 fi
 
 echo "Running database migrations..."
