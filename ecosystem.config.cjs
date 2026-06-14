@@ -5,6 +5,7 @@ module.exports = {
     args: './build/server/index.js',
     cwd: '/var/www/restock-alerts',
     instances: 1,
+    exec_mode: 'fork',
     autorestart: true,
     watch: false,
     env: {
