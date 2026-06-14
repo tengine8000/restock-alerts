@@ -25,7 +25,7 @@ echo "Building app..."
 npm run build
 
 echo "Reloading PM2..."
-pm2 reload restock-alerts || pm2 start ecosystem.config.cjs
+pm2 reload restock-alerts --update-env || pm2 start ecosystem.config.cjs
 pm2 save
 
 echo "Deploy complete."
