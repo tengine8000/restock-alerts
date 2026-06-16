@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   emailFromName: "Your Store",
   emailSubject: "Good news — your item is back in stock!",
   emailBodyHtml: "",
+  onboardingCompletedAt: null,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };
@@ -141,10 +142,10 @@ export async function sendTestEmail(
   return NotificationService.sendTest({ shop, toEmail });
 }
 
-/** Returns true if no ShopSettings row exists for the shop (first install). */
+/** Returns true if the shop hasn't completed the onboarding wizard yet. */
 export async function isFirstInstall(shop: string): Promise<boolean> {
   const settings = await prisma.shopSettings.findUnique({ where: { shop } });
-  return settings === null;
+  return settings === null || settings.onboardingCompletedAt === null;
 }
 
 export const NotificationService = {

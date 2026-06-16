@@ -68,6 +68,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   if (step === "done") {
+    await saveShopSettings(shop, { onboardingCompletedAt: new Date() });
     throw redirect("/app");
   }
 
