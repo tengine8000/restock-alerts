@@ -12,25 +12,25 @@ scopes = "read_products,read_inventory"
 api_version = "2026-07"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
+  uri = "https://merchalabs.com/webhooks/app/uninstalled"
   topics = [ "app/uninstalled" ]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
+  uri = "https://merchalabs.com/webhooks/app/scopes_update"
   topics = [ "app/scopes_update" ]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/inventory_levels/update"
+  uri = "https://merchalabs.com/webhooks/inventory_levels/update"
   topics = [ "inventory_levels/update" ]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app_subscriptions/update"
+  uri = "https://merchalabs.com/webhooks/app_subscriptions/update"
   topics = [ "app_subscriptions/update" ]
 
   [webhooks.privacy_compliance]
-  customer_data_request_url = "/webhooks/customers/data_request"
-  customer_deletion_url = "/webhooks/customers/redact"
-  shop_deletion_url = "/webhooks/shop/redact"
+  customer_data_request_url = "https://merchalabs.com/webhooks/customers/data_request"
+  customer_deletion_url = "https://merchalabs.com/webhooks/customers/redact"
+  shop_deletion_url = "https://merchalabs.com/webhooks/shop/redact"
 
 [app_proxy]
 url = "https://merchalabs.com/restock-alerts/api"
