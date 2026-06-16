@@ -1,7 +1,39 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
-import { exportSubscribersCsv } from "../services/subscriber.server";
-import prisma from "../db.server";
+import { exportSubscribersCsv, exportSubscribersJson } from "../services/subscriber.server";
+
+function streamFrom(generator: AsyncGenerator<string>): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    async pull(controller) {
+      const { value, done } = await generator.next();
+      if (done) {
+        controller.close();
+        return;
+      }
+      controller.enqueue(encoder.encode(value));
+    },
+    async cancel() {
+      await generator.return(undefined);
+    },
+  });
+}
+
+async function* csvChunks(opts: { shop: string; productId?: string; status?: string }) {
+  for await (const chunk of exportSubscribersCsv(opts)) {
+    yield chunk;
+  }
+}
+
+async function* jsonChunks(opts: { shop: string; productId?: string; status?: string }) {
+  yield "[\n";
+  let first = true;
+  for await (const sub of exportSubscribersJson(opts)) {
+    yield (first ? "" : ",\n") + JSON.stringify(sub, null, 2);
+    first = false;
+  }
+  yield "\n]\n";
+}
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -15,24 +47,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const format = url.searchParams.get("format") === "json" ? "json" : "csv";
 
   if (format === "json") {
-    const subscribers = await prisma.subscriber.findMany({
-      where: {
-        shop,
-        ...(productId ? { productId } : {}),
-        ...(status ? { status } : {}),
-      },
-      orderBy: { subscribedAt: "asc" },
-      select: {
-        email: true,
-        productId: true,
-        variantId: true,
-        status: true,
-        subscribedAt: true,
-        notifiedAt: true,
-      },
-    });
-
-    return new Response(JSON.stringify(subscribers, null, 2), {
+    return new Response(streamFrom(jsonChunks({ shop, productId, status })), {
       status: 200,
       headers: {
         "Content-Type": "application/json; charset=utf-8",
@@ -41,14 +56,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     });
   }
 
-  const generator = await exportSubscribersCsv({ shop, productId, status });
-
-  const chunks: string[] = [];
-  for await (const chunk of generator) {
-    chunks.push(chunk);
-  }
-
-  return new Response(chunks.join(""), {
+  return new Response(streamFrom(csvChunks({ shop, productId, status })), {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

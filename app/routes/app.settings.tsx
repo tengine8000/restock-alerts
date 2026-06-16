@@ -112,7 +112,7 @@ export default function SettingsPage() {
   const [testPillDismissed, setTestPillDismissed] = useState(false);
 
   useEffect(() => { setTestPillDismissed(false); }, [actionData]);
-  const themeEditorUrl = `https://${shop}/admin/themes/current/editor`;
+  const themeEditorUrl = `https://${shop}/admin/themes/current/editor?template=product&addAppBlockId=restock-alerts-notify-me/notify-me&target=mainSection`;
 
   const planLabel = settings.plan.charAt(0) + settings.plan.slice(1).toLowerCase();
 

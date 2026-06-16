@@ -146,29 +146,105 @@ export const SubscriberService = {
     status?: string;
   }): AsyncGenerator<string> {
     const { shop, productId, status } = opts;
+    const BATCH_SIZE = 1000;
 
     yield "email,product_title,variant_title,product_id,variant_id,subscribed_at,status\n";
 
-    const subscribers = await prisma.subscriber.findMany({
-      where: {
-        shop,
-        ...(productId ? { productId } : {}),
-        ...(status ? { status } : {}),
-      },
-      orderBy: { subscribedAt: "asc" },
-    });
+    const where = {
+      shop,
+      ...(productId ? { productId } : {}),
+      ...(status ? { status } : {}),
+    };
 
-    for (const sub of subscribers) {
-      const row = [
-        escapeCsvField(sub.email),
-        escapeCsvField(sub.productTitle ?? ""),
-        escapeCsvField(sub.variantTitle ?? ""),
-        escapeCsvField(sub.productId),
-        escapeCsvField(sub.variantId),
-        sub.subscribedAt.toISOString(),
-        escapeCsvField(sub.status),
-      ].join(",");
-      yield row + "\n";
+    let cursor: string | undefined;
+
+    while (true) {
+      const batch = await prisma.subscriber.findMany({
+        where,
+        orderBy: { id: "asc" },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      });
+
+      if (batch.length === 0) break;
+
+      for (const sub of batch) {
+        const row = [
+          escapeCsvField(sub.email),
+          escapeCsvField(sub.productTitle ?? ""),
+          escapeCsvField(sub.variantTitle ?? ""),
+          escapeCsvField(sub.productId),
+          escapeCsvField(sub.variantId),
+          sub.subscribedAt.toISOString(),
+          escapeCsvField(sub.status),
+        ].join(",");
+        yield row + "\n";
+      }
+
+      cursor = batch[batch.length - 1].id;
+      if (batch.length < BATCH_SIZE) break;
+    }
+  },
+
+  /**
+   * Yields JSON subscriber records one at a time (caller wraps as a JSON array).
+   * Cursor-paginates to avoid loading all rows into memory.
+   */
+  async *exportJson(opts: {
+    shop: string;
+    productId?: string;
+    status?: string;
+  }): AsyncGenerator<{
+    email: string;
+    productId: string;
+    variantId: string;
+    status: string;
+    subscribedAt: Date;
+    notifiedAt: Date | null;
+  }> {
+    const { shop, productId, status } = opts;
+    const BATCH_SIZE = 1000;
+
+    const where = {
+      shop,
+      ...(productId ? { productId } : {}),
+      ...(status ? { status } : {}),
+    };
+
+    let cursor: string | undefined;
+
+    while (true) {
+      const batch = await prisma.subscriber.findMany({
+        where,
+        orderBy: { id: "asc" },
+        take: BATCH_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        select: {
+          id: true,
+          email: true,
+          productId: true,
+          variantId: true,
+          status: true,
+          subscribedAt: true,
+          notifiedAt: true,
+        },
+      });
+
+      if (batch.length === 0) break;
+
+      for (const sub of batch) {
+        yield {
+          email: sub.email,
+          productId: sub.productId,
+          variantId: sub.variantId,
+          status: sub.status,
+          subscribedAt: sub.subscribedAt,
+          notifiedAt: sub.notifiedAt,
+        };
+      }
+
+      cursor = batch[batch.length - 1].id;
+      if (batch.length < BATCH_SIZE) break;
     }
   },
 };
@@ -262,4 +338,13 @@ export function exportSubscribersCsv(opts: {
   status?: string;
 }): AsyncGenerator<string> {
   return SubscriberService.exportCsv(opts);
+}
+
+/** Alias for SubscriberService.exportJson — used by UI routes. */
+export function exportSubscribersJson(opts: {
+  shop: string;
+  productId?: string;
+  status?: string;
+}) {
+  return SubscriberService.exportJson(opts);
 }

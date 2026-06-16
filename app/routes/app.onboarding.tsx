@@ -264,7 +264,7 @@ function Step1({ settings, navigation }: { settings: ShopSettings; navigation: R
 // ─── Step 2 ───────────────────────────────────────────────────────────────────
 
 function Step2({ shop }: { shop: string }) {
-  const themeEditorUrl = `https://${shop}/admin/themes/current/editor`;
+  const themeEditorUrl = `https://${shop}/admin/themes/current/editor?template=product&addAppBlockId=restock-alerts-notify-me/notify-me&target=mainSection`;
 
   const steps = [
     { label: "Open your Shopify theme editor", detail: "Click the button below to go directly there." },
