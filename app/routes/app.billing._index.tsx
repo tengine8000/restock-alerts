@@ -2,20 +2,7 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useActionData, useNavigation, Form } from "react-router";
 import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
-import { getShopSettings, saveShopSettings } from "../services/notification.server";
-
-const PLAN_NAME_TO_ID: Record<string, string> = {
-  "Starter Plan": "STARTER",
-  "Growth Plan": "GROWTH",
-};
-
-const ACTIVE_SUBSCRIPTION_DETAIL = `#graphql
-  query {
-    currentAppInstallation {
-      activeSubscriptions { id name status currentPeriodEnd }
-    }
-  }
-`;
+import { reconcileShopPlan } from "../services/notification.server";
 
 const PLANS = [
   {
@@ -61,29 +48,10 @@ const CREATE_SUBSCRIPTION = `#graphql
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
-  const settings = await getShopSettings(session.shop);
-
-  const res = await admin.graphql(ACTIVE_SUBSCRIPTION_DETAIL);
-  const json = await res.json();
-  const subs: { id: string; name: string; status: string; currentPeriodEnd: string | null }[] =
-    json?.data?.currentAppInstallation?.activeSubscriptions ?? [];
-  const active = subs.find((s) => s.status === "ACTIVE");
-
-  let currentPlan = settings?.plan ?? "FREE";
-  let activeUntil: string | null = null;
-
-  if (active) {
-    const planId = PLAN_NAME_TO_ID[active.name] ?? null;
-    if (planId && planId !== currentPlan) {
-      await saveShopSettings(session.shop, { plan: planId });
-      currentPlan = planId;
-    }
-    activeUntil = active.currentPeriodEnd ?? null;
-  } else if (currentPlan !== "FREE") {
-    await saveShopSettings(session.shop, { plan: "FREE" });
-    currentPlan = "FREE";
-  }
-
+  const { plan: currentPlan, activeUntil } = await reconcileShopPlan(
+    session.shop,
+    admin.graphql.bind(admin)
+  );
   return { currentPlan, activeUntil };
 };
 

@@ -20,6 +20,7 @@ import {
   PLAN_LIMITS,
   NotificationService,
   PlanLimitError,
+  reconcileShopPlan,
 } from "../services/notification.server";
 
 const PRODUCT_IMAGES_QUERY = `#graphql
@@ -64,7 +65,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const gridPage = Math.max(1, parseInt(url.searchParams.get("gridPage") ?? "1", 10));
   const gridFilter = url.searchParams.get("gridFilter") === "all" ? "all" : "pending";
 
-  const [stats, { subscribers, total }, settings, allProductGroups] = await Promise.all([
+  const [stats, { subscribers, total }, settings, allProductGroups, { plan: reconciledPlan }] = await Promise.all([
     getSubscriberStats(shop),
     findAllSubscribers({
       shop,
@@ -76,6 +77,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }),
     getShopSettings(shop),
     getProductGroups(shop),
+    reconcileShopPlan(shop, admin.graphql.bind(admin)),
   ]);
 
   const gridSourceGroups =
@@ -120,7 +122,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   }));
 
   const resolvedSettings = settings ?? DEFAULT_SETTINGS;
-  const planLimit = PLAN_LIMITS[resolvedSettings.plan] ?? PLAN_LIMITS["FREE"];
+  const planLimit = PLAN_LIMITS[reconciledPlan] ?? PLAN_LIMITS["FREE"];
   const emailsRemaining = Math.max(0, planLimit - stats.sentThisMonth);
   const planLimitReached = stats.sentThisMonth >= planLimit;
 
@@ -141,7 +143,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     productGroups: allProductGroups,
     pagedProductGroups,
     autoSendEnabled: resolvedSettings.autoSendEnabled,
-    plan: resolvedSettings.plan,
+    plan: reconciledPlan,
     planLimit,
     emailsRemaining,
     planLimitReached,
@@ -156,6 +158,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = formData.get("intent");
 
   if (intent === "send_now") {
+    await reconcileShopPlan(shop, admin.graphql.bind(admin));
+
     const pendingVariants = await import("../db.server").then(({ default: prisma }) =>
       prisma.subscriber.findMany({
         where: { shop, status: "PENDING" },

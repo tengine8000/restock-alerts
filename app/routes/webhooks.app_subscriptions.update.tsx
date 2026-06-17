@@ -1,19 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/shopify.server";
-import { saveShopSettings } from "~/services/notification.server";
-
-const PLAN_NAME_TO_ID: Record<string, string> = {
-  "Starter Plan": "STARTER",
-  "Growth Plan": "GROWTH",
-};
-
-const ACTIVE_SUBSCRIPTIONS = `#graphql
-  query {
-    currentAppInstallation {
-      activeSubscriptions { id name status }
-    }
-  }
-`;
+import { saveShopSettings, reconcileShopPlan } from "~/services/notification.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, admin } = await authenticate.webhook(request);
@@ -22,22 +9,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     // Production: query live state and reconcile — never rely on webhook payload status alone.
     // DECLINED fires when a pending upgrade is cancelled (should not affect existing plan).
     // CANCELLED fires during plan switches before the new plan is confirmed.
-    const res = await admin.graphql(ACTIVE_SUBSCRIPTIONS);
-    const json = await res.json();
-    const subs: { id: string; name: string; status: string }[] =
-      json?.data?.currentAppInstallation?.activeSubscriptions ?? [];
-    const active = subs.find((s) => s.status === "ACTIVE");
-
-    if (active) {
-      const planId = PLAN_NAME_TO_ID[active.name] ?? null;
-      if (planId) {
-        await saveShopSettings(shop, { plan: planId });
-        console.log(`[webhook:app_subscriptions/update] ${shop} plan set to ${planId} (active subscription found)`);
-      }
-    } else {
-      await saveShopSettings(shop, { plan: "FREE" });
-      console.log(`[webhook:app_subscriptions/update] ${shop} downgraded to FREE (no active subscription)`);
-    }
+    const { plan } = await reconcileShopPlan(shop, admin.graphql.bind(admin));
+    console.log(`[webhook:app_subscriptions/update] ${shop} plan reconciled to ${plan}`);
   } else {
     // CLI test mode: admin client not available; fall back to payload-based logic.
     const sub = (payload as { app_subscription?: { status?: string } })?.app_subscription;

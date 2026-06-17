@@ -108,6 +108,50 @@ function buildEmailHtml(
     .replace(/\{\{product_url\}\}/g, escapeHtml(safeUrl));
 }
 
+export const PLAN_NAME_TO_ID: Record<string, string> = {
+  "Starter Plan": "STARTER",
+  "Growth Plan": "GROWTH",
+};
+
+const ACTIVE_SUBSCRIPTION_QUERY = `#graphql
+  query {
+    currentAppInstallation {
+      activeSubscriptions { id name status currentPeriodEnd }
+    }
+  }
+`;
+
+/**
+ * Queries Shopify for the merchant's current active subscription, reconciles
+ * ShopSettings.plan in the DB to match, and returns the live plan + renewal date.
+ * Use this in any loader/action that displays or enforces the plan.
+ */
+export async function reconcileShopPlan(
+  shop: string,
+  graphql: AdminGraphQL
+): Promise<{ plan: string; activeUntil: string | null }> {
+  const res = await graphql(ACTIVE_SUBSCRIPTION_QUERY);
+  const json = await res.json();
+  const subs: { id: string; name: string; status: string; currentPeriodEnd: string | null }[] =
+    json?.data?.currentAppInstallation?.activeSubscriptions ?? [];
+  const active = subs.find((s) => s.status === "ACTIVE");
+
+  if (active) {
+    const planId = PLAN_NAME_TO_ID[active.name] ?? null;
+    if (planId) {
+      await saveShopSettings(shop, { plan: planId });
+      return { plan: planId, activeUntil: active.currentPeriodEnd ?? null };
+    }
+  }
+
+  const settings = await getShopSettings(shop);
+  const currentPlan = settings?.plan ?? "FREE";
+  if (currentPlan !== "FREE") {
+    await saveShopSettings(shop, { plan: "FREE" });
+  }
+  return { plan: "FREE", activeUntil: null };
+}
+
 /** Returns ShopSettings for a shop, or null if not found. */
 export async function getShopSettings(
   shop: string

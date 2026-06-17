@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "~/shopify.server";
-import { NotificationService, PlanLimitError } from "~/services/notification.server";
+import { NotificationService, PlanLimitError, reconcileShopPlan } from "~/services/notification.server";
 
 const VARIANT_FROM_INVENTORY_ITEM = `#graphql
   query VariantFromInventoryItem($id: ID!) {
@@ -60,7 +60,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   }
 
   // Fire-and-forget: return 200 immediately so Shopify doesn't retry
-  NotificationService.sendRestock({ shop, variantId, admin: admin.graphql.bind(admin) }).catch((err: unknown) => {
+  const adminGraphQL = admin.graphql.bind(admin);
+  (async () => {
+    await reconcileShopPlan(shop, adminGraphQL);
+    await NotificationService.sendRestock({ shop, variantId, admin: adminGraphQL });
+  })().catch((err: unknown) => {
     if (err instanceof PlanLimitError) {
       console.log(`[webhook:inventory_levels/update] Plan limit reached for ${shop}: ${err.message}`);
     } else {

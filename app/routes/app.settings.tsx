@@ -13,6 +13,7 @@ import {
   sendTestEmail,
   DEFAULT_SETTINGS,
   PLAN_LIMITS,
+  reconcileShopPlan,
 } from "../services/notification.server";
 
 function substituteTokens(html: string): string {
@@ -22,12 +23,16 @@ function substituteTokens(html: string): string {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = session.shop;
-  const settings = (await getShopSettings(shop)) ?? DEFAULT_SETTINGS;
-  const planLimit = PLAN_LIMITS[settings.plan] ?? PLAN_LIMITS["FREE"];
-  const previewHtml = substituteTokens(settings.emailBodyHtml);
-  return { settings, planLimit, previewHtml, shop };
+  const [settings, { plan }] = await Promise.all([
+    getShopSettings(shop),
+    reconcileShopPlan(shop, admin.graphql.bind(admin)),
+  ]);
+  const resolvedSettings = settings ?? DEFAULT_SETTINGS;
+  const planLimit = PLAN_LIMITS[plan] ?? PLAN_LIMITS["FREE"];
+  const previewHtml = substituteTokens(resolvedSettings.emailBodyHtml);
+  return { settings: resolvedSettings, plan, planLimit, previewHtml, shop };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -101,7 +106,7 @@ function ToggleSwitch({ checked, onChange }: { checked: boolean; onChange: (v: b
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
-  const { settings, planLimit, previewHtml, shop } = useLoaderData<typeof loader>();
+  const { settings, plan, planLimit, previewHtml, shop } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
 
@@ -114,7 +119,7 @@ export default function SettingsPage() {
   useEffect(() => { setTestPillDismissed(false); }, [actionData]);
   const themeEditorUrl = `https://${shop}/admin/themes/current/editor?template=product&addAppBlockId=restock-alerts-notify-me/notify-me&target=mainSection`;
 
-  const planLabel = settings.plan.charAt(0) + settings.plan.slice(1).toLowerCase();
+  const planLabel = plan.charAt(0) + plan.slice(1).toLowerCase();
 
   return (
     <s-page heading="Settings">
