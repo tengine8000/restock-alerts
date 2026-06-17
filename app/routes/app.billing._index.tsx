@@ -2,7 +2,20 @@ import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useActionData, useNavigation, Form } from "react-router";
 import { useEffect } from "react";
 import { authenticate } from "../shopify.server";
-import { getShopSettings } from "../services/notification.server";
+import { getShopSettings, saveShopSettings } from "../services/notification.server";
+
+const PLAN_NAME_TO_ID: Record<string, string> = {
+  "Starter Plan": "STARTER",
+  "Growth Plan": "GROWTH",
+};
+
+const ACTIVE_SUBSCRIPTION_DETAIL = `#graphql
+  query {
+    currentAppInstallation {
+      activeSubscriptions { id name status currentPeriodEnd }
+    }
+  }
+`;
 
 const PLANS = [
   {
@@ -47,9 +60,31 @@ const CREATE_SUBSCRIPTION = `#graphql
 `;
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const settings = await getShopSettings(session.shop);
-  return { currentPlan: settings?.plan ?? "FREE" };
+
+  const res = await admin.graphql(ACTIVE_SUBSCRIPTION_DETAIL);
+  const json = await res.json();
+  const subs: { id: string; name: string; status: string; currentPeriodEnd: string | null }[] =
+    json?.data?.currentAppInstallation?.activeSubscriptions ?? [];
+  const active = subs.find((s) => s.status === "ACTIVE");
+
+  let currentPlan = settings?.plan ?? "FREE";
+  let activeUntil: string | null = null;
+
+  if (active) {
+    const planId = PLAN_NAME_TO_ID[active.name] ?? null;
+    if (planId && planId !== currentPlan) {
+      await saveShopSettings(session.shop, { plan: planId });
+      currentPlan = planId;
+    }
+    activeUntil = active.currentPeriodEnd ?? null;
+  } else if (currentPlan !== "FREE") {
+    await saveShopSettings(session.shop, { plan: "FREE" });
+    currentPlan = "FREE";
+  }
+
+  return { currentPlan, activeUntil };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -101,7 +136,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function BillingPage() {
-  const { currentPlan } = useLoaderData<typeof loader>();
+  const { currentPlan, activeUntil } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === "submitting";
@@ -122,6 +157,22 @@ export default function BillingPage() {
         {actionData?.error && (
           <s-banner tone="critical">
             <s-text>{actionData.error}</s-text>
+          </s-banner>
+        )}
+
+        {activeUntil && (
+          <s-banner tone="info">
+            <s-text>
+              Your <strong>{currentPlan.charAt(0) + currentPlan.slice(1).toLowerCase()}</strong> plan
+              is active and will renew on{" "}
+              <strong>
+                {new Date(activeUntil).toLocaleDateString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </strong>.
+            </s-text>
           </s-banner>
         )}
 
