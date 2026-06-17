@@ -34,3 +34,6 @@ database.sqlite
 
 # npm cache
 /npm_cache/
+
+# VS Code workspace files
+*.code-workspace
