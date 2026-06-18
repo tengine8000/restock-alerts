@@ -10,7 +10,8 @@ const PLANS = [
     name: "Free",
     price: 0,
     emails: 50,
-    features: ["50 emails / month", "Unlimited subscribers", "Theme editor widget", "Email customisation"],
+    support: "Email support",
+    popular: false,
   },
   {
     id: "STARTER",
@@ -18,7 +19,8 @@ const PLANS = [
     price: 9,
     emails: 1000,
     trialDays: 7,
-    features: ["1,000 emails / month", "Unlimited subscribers", "Theme editor widget", "Email customisation", "CSV & JSON export", "Priority support"],
+    support: "Priority support",
+    popular: true,
   },
   {
     id: "GROWTH",
@@ -26,9 +28,19 @@ const PLANS = [
     price: 19,
     emails: 5000,
     trialDays: 7,
-    features: ["5,000 emails / month", "Unlimited subscribers", "Theme editor widget", "Email customisation", "CSV & JSON export", "Priority support", "Manual send controls"],
+    support: "Priority support",
+    popular: false,
   },
 ] as const;
+
+const ALL_FEATURES = [
+  { icon: "👥", label: "Unlimited subscribers" },
+  { icon: "🎨", label: "Theme editor widget" },
+  { icon: "✏️", label: "Email customisation" },
+  { icon: "📤", label: "CSV & JSON export" },
+  { icon: "🚀", label: "Manual send controls" },
+  { icon: "⚡", label: "Auto-send on restock" },
+];
 
 const CREATE_SUBSCRIPTION = `#graphql
   mutation AppSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $trialDays: Int, $test: Boolean) {
@@ -144,26 +156,21 @@ export default function BillingPage() {
           </s-banner>
         )}
 
-        {/* ── Intro card ── */}
-        <div style={{
-          background: "#fff", border: "1px solid #e4e5e7",
-          borderRadius: "10px", padding: "20px 24px",
-          display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px",
-        }}>
-          <div>
-            <div style={{ fontSize: "16px", fontWeight: 600, color: "#202223", marginBottom: "4px" }}>
-              Choose the right plan for your store
-            </div>
-            <div style={{ fontSize: "13px", color: "#6d7175" }}>
-              All paid plans include a 7-day free trial. Cancel any time — no questions asked.
-            </div>
+        {/* ── Header ── */}
+        <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+          <div style={{ fontSize: "22px", fontWeight: 700, color: "#202223", marginBottom: "8px" }}>
+            Simple, transparent pricing
+          </div>
+          <div style={{ fontSize: "14px", color: "#6d7175" }}>
+            Every feature included on every plan. Only the email volume changes.
           </div>
           <div style={{
+            display: "inline-block", marginTop: "12px",
             background: "#f0faf6", border: "1px solid #b5e3cc",
-            borderRadius: "8px", padding: "8px 14px",
-            fontSize: "13px", fontWeight: 600, color: "#008060", whiteSpace: "nowrap",
+            borderRadius: "20px", padding: "5px 16px",
+            fontSize: "13px", fontWeight: 600, color: "#008060",
           }}>
-            7-day free trial
+            7-day free trial on paid plans
           </div>
         </div>
 
@@ -182,64 +189,86 @@ export default function BillingPage() {
               <div
                 key={plan.id}
                 style={{
-                  background: "#fff",
-                  border: isCurrent ? "2px solid #008060" : "1px solid #e4e5e7",
-                  borderRadius: "10px",
-                  padding: "24px",
+                  background: plan.popular ? "#f6fffe" : "#fff",
+                  border: isCurrent
+                    ? "2px solid #008060"
+                    : plan.popular
+                    ? "2px solid #008060"
+                    : "1px solid #e4e5e7",
+                  borderRadius: "12px",
+                  padding: "28px 24px 24px",
                   position: "relative",
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
-                {isCurrent && (
+                {/* Badge: current plan takes priority over popular */}
+                {isCurrent ? (
                   <div style={{
-                    position: "absolute", top: "-12px", left: "50%",
+                    position: "absolute", top: "-13px", left: "50%",
                     transform: "translateX(-50%)",
                     background: "#008060", color: "#fff",
                     fontSize: "11px", fontWeight: 700,
-                    padding: "3px 12px", borderRadius: "20px",
-                    whiteSpace: "nowrap", letterSpacing: "0.04em", textTransform: "uppercase",
+                    padding: "3px 14px", borderRadius: "20px",
+                    whiteSpace: "nowrap", letterSpacing: "0.05em", textTransform: "uppercase",
                   }}>
                     Current plan
                   </div>
-                )}
+                ) : plan.popular ? (
+                  <div style={{
+                    position: "absolute", top: "-13px", left: "50%",
+                    transform: "translateX(-50%)",
+                    background: "#008060", color: "#fff",
+                    fontSize: "11px", fontWeight: 700,
+                    padding: "3px 14px", borderRadius: "20px",
+                    whiteSpace: "nowrap", letterSpacing: "0.05em", textTransform: "uppercase",
+                  }}>
+                    Most popular
+                  </div>
+                ) : null}
 
-                {/* Plan name + price */}
-                <div style={{ marginBottom: "20px" }}>
-                  <div style={{ fontSize: "16px", fontWeight: 700, color: "#202223", marginBottom: "10px" }}>
-                    {plan.name}
+                {/* Plan name */}
+                <div style={{ fontSize: "13px", fontWeight: 600, color: "#6d7175", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "10px" }}>
+                  {plan.name}
+                </div>
+
+                {/* Price */}
+                <div style={{ display: "flex", alignItems: "baseline", gap: "2px", marginBottom: "20px" }}>
+                  {plan.price === 0 ? (
+                    <span style={{ fontSize: "38px", fontWeight: 800, color: "#202223" }}>Free</span>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: "16px", fontWeight: 600, color: "#6d7175", alignSelf: "flex-start", marginTop: "8px" }}>$</span>
+                      <span style={{ fontSize: "38px", fontWeight: 800, color: "#202223" }}>{plan.price}</span>
+                      <span style={{ fontSize: "14px", color: "#6d7175", marginLeft: "2px" }}>/mo</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Email volume — the hero differentiator */}
+                <div style={{
+                  background: plan.popular ? "#e6f4f0" : "#f6f6f7",
+                  borderRadius: "8px",
+                  padding: "14px 16px",
+                  marginBottom: "20px",
+                  textAlign: "center",
+                }}>
+                  <div style={{ fontSize: "28px", fontWeight: 800, color: "#008060", lineHeight: 1 }}>
+                    {plan.emails.toLocaleString()}
                   </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: "2px" }}>
-                    {plan.price === 0 ? (
-                      <span style={{ fontSize: "32px", fontWeight: 800, color: "#202223" }}>Free</span>
-                    ) : (
-                      <>
-                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#6d7175", marginTop: "6px", alignSelf: "flex-start" }}>$</span>
-                        <span style={{ fontSize: "32px", fontWeight: 800, color: "#202223" }}>{plan.price}</span>
-                        <span style={{ fontSize: "13px", color: "#6d7175" }}>/mo</span>
-                      </>
-                    )}
-                  </div>
-                  <div style={{ fontSize: "13px", color: "#6d7175", marginTop: "4px" }}>
-                    {plan.emails.toLocaleString()} emails / month
+                  <div style={{ fontSize: "12px", color: "#6d7175", marginTop: "4px", fontWeight: 500 }}>
+                    emails / month
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div style={{ height: "1px", background: "#f1f2f3", marginBottom: "16px" }} />
-
-                {/* Features */}
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 24px", flex: 1 }}>
-                  {plan.features.map((f) => (
-                    <li key={f} style={{ fontSize: "13px", color: "#202223", padding: "5px 0", display: "flex", gap: "8px", alignItems: "flex-start" }}>
-                      <span style={{
-                        color: "#008060", fontWeight: 700, fontSize: "12px",
-                        marginTop: "1px", flexShrink: 0,
-                      }}>✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
+                {/* Support tier */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: "6px",
+                  fontSize: "13px", color: "#202223", marginBottom: "24px",
+                }}>
+                  <span style={{ color: "#008060", fontWeight: 700 }}>✓</span>
+                  {plan.support}
+                </div>
 
                 {/* CTA */}
                 {isCurrent ? (
@@ -265,6 +294,28 @@ export default function BillingPage() {
               </div>
             );
           })}
+        </div>
+
+        {/* ── Everything included ── */}
+        <div style={{
+          background: "#fff", border: "1px solid #e4e5e7",
+          borderRadius: "12px", padding: "24px 28px",
+        }}>
+          <div style={{ fontSize: "14px", fontWeight: 700, color: "#202223", marginBottom: "16px" }}>
+            Everything included on every plan
+          </div>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "12px 24px",
+          }}>
+            {ALL_FEATURES.map((f) => (
+              <div key={f.label} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#202223" }}>
+                <span style={{ fontSize: "16px" }}>{f.icon}</span>
+                {f.label}
+              </div>
+            ))}
+          </div>
         </div>
 
       </s-stack>
