@@ -16,6 +16,7 @@ import {
 } from "../services/subscriber.server";
 import {
   getShopSettings,
+  saveShopSettings,
   DEFAULT_SETTINGS,
   PLAN_LIMITS,
   NotificationService,
@@ -125,6 +126,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const planLimit = PLAN_LIMITS[reconciledPlan] ?? PLAN_LIMITS["FREE"];
   const emailsRemaining = Math.max(0, planLimit - stats.sentThisMonth);
   const planLimitReached = stats.sentThisMonth >= planLimit;
+  const showReviewBanner =
+    !!settings &&
+    settings.reviewPromptDismissedAt === null &&
+    Date.now() - settings.createdAt.getTime() >= 7 * 24 * 60 * 60 * 1000;
 
   return {
     stats,
@@ -147,6 +152,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     planLimit,
     emailsRemaining,
     planLimitReached,
+    showReviewBanner,
   };
 };
 
@@ -199,6 +205,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       success: true,
       message: `Done — ${totalSent} email(s) sent${totalFailed > 0 ? `, ${totalFailed} failed` : ""}.`,
     };
+  }
+
+  if (intent === "dismiss_review_banner") {
+    await saveShopSettings(shop, { reviewPromptDismissedAt: new Date() });
+    return { success: true, message: "" };
   }
 
   return { success: false, message: "Unknown action" };
@@ -486,6 +497,7 @@ export default function Dashboard() {
     planLimit,
     emailsRemaining,
     planLimitReached,
+    showReviewBanner,
   } = useLoaderData<typeof loader>();
 
   const submit = useSubmit();
@@ -603,6 +615,33 @@ export default function Dashboard() {
         select:focus { box-shadow: 0 0 0 2px #458fff40; border-color: #458fff; }
       `}</style>
       <s-stack direction="block" gap="base">
+
+        {showReviewBanner && (
+          <div style={{
+            background: "#f0faf6", border: "1px solid #b5e3cc",
+            borderRadius: "10px", padding: "14px 18px",
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px",
+          }}>
+            <div style={{ fontSize: "14px", color: "#202223" }}>
+              Enjoying Restock Alerts? Your review helps other merchants find us.{" "}
+              <a
+                href="https://apps.shopify.com/restock-alerts-merchalabs"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#008060", fontWeight: 600, textDecoration: "none" }}
+              >
+                Leave a review →
+              </a>
+            </div>
+            <Form method="post">
+              <input type="hidden" name="intent" value="dismiss_review_banner" />
+              <button type="submit" style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "#6d7175", fontSize: "20px", lineHeight: 1, padding: "0 4px",
+              }}>×</button>
+            </Form>
+          </div>
+        )}
 
         {/* Auto-send paused banner */}
         {!autoSendEnabled && (

@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   emailSubject: "Good news — your item is back in stock!",
   emailBodyHtml: "",
   onboardingCompletedAt: null,
+  reviewPromptDismissedAt: null,
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };

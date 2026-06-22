@@ -67,7 +67,8 @@ model ShopSettings {
   emailFromName          String    @default("Your Store")
   emailSubject           String    @default("Good news — your item is back in stock!")
   emailBodyHtml          String    @default("")
-  onboardingCompletedAt  DateTime?
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  onboardingCompletedAt    DateTime?
+  reviewPromptDismissedAt  DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 }

@@ -32,6 +32,7 @@ export function makeShopSettings(
     emailBodyHtml:
       '<p>Good news! <a href="{{product_url}}">{{product_title}}</a> is back in stock.</p>',
     onboardingCompletedAt: new Date("2024-01-01T00:00:00Z"),
+    reviewPromptDismissedAt: null,
     createdAt: new Date("2024-01-01T00:00:00Z"),
     updatedAt: new Date("2024-01-01T00:00:00Z"),
     ...overrides,
