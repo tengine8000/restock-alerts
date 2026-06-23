@@ -187,10 +187,10 @@ export async function sendTestEmail(
   return NotificationService.sendTest({ shop, toEmail });
 }
 
-/** Returns true if the shop hasn't completed the onboarding wizard yet. */
+/** Returns true if this shop has never opened the app before (no ShopSettings row). */
 export async function isFirstInstall(shop: string): Promise<boolean> {
   const settings = await prisma.shopSettings.findUnique({ where: { shop } });
-  return settings === null || settings.onboardingCompletedAt === null;
+  return settings === null;
 }
 
 export const NotificationService = {

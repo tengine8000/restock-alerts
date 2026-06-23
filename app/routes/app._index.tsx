@@ -23,6 +23,7 @@ import {
   PlanLimitError,
   reconcileShopPlan,
 } from "../services/notification.server";
+import { AppResendProvider } from "../services/email/AppResendProvider";
 
 const PRODUCT_IMAGES_QUERY = `#graphql
   query ProductImages($ids: [ID!]!) {
@@ -121,6 +122,26 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     ...g,
     imageUrl: imageMap[g.productId] ?? null,
   }));
+
+  // settings === null means this is the merchant's first ever dashboard load (fresh install)
+  if (settings === null) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (apiKey) {
+      new AppResendProvider(apiKey)
+        .send({
+          to: "torty.emmanuel@gmail.com",
+          fromName: "Restock Alerts",
+          subject: `New install: ${shop}`,
+          html: `
+            <p>A new merchant just installed Restock Alerts.</p>
+            <p><strong>Shop:</strong> ${shop}</p>
+            <p><strong>Time:</strong> ${new Date().toUTCString()}</p>
+            <p>Reach out to welcome them. In 7 days they'll see the in-app review prompt.</p>
+          `,
+        })
+        .catch((err) => console.error("[install-notify] email failed:", err));
+    }
+  }
 
   const resolvedSettings = settings ?? DEFAULT_SETTINGS;
   const planLimit = PLAN_LIMITS[reconciledPlan] ?? PLAN_LIMITS["FREE"];

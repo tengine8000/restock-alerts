@@ -60,6 +60,7 @@ model NotificationLog {
   @@index([shop, sentAt])
 }
 
+
 model ShopSettings {
   shop                  String    @id
   autoSendEnabled        Boolean   @default(true)
